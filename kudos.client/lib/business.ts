@@ -46,3 +46,34 @@ export async function createBusiness(
 
   return res.json();
 }
+
+export async function updateBusiness(
+  businessId: string,
+  payload: {
+    name: string;
+    description?: string | null;
+    phone?: string | null;
+    websiteUrl?: string | null;
+    address1?: string | null;
+    address2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    categorySlugs?: string[];
+    priceLevel?: number | null;
+    acceptsReservations: boolean;
+    offersOnlineWaitlist: boolean;
+    offersDelivery: boolean;
+    offersTakeout: boolean;
+    outdoorSeating: boolean;
+    timeZone: string;
+  }
+) {
+  const res = await apiFetch(`/business/${businessId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+  return res.json();
+}
+

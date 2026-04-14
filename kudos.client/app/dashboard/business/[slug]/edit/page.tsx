@@ -1,40 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createBusiness } from "@/lib/business";
-import { slugify } from "@/lib/slug";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { apiFetch } from "@/lib/api";
+import { updateBusiness } from "@/lib/business";
 import { CATEGORY_TREE } from "@/lib/categoryTree";
 
-const CATEGORY_OPTIONS = [
-  { label: "Restaurant", slug: "restaurant" },
-  { label: "Coffee Shop", slug: "coffee-shop" },
-  { label: "Bakery", slug: "bakery" },
-  { label: "Bar", slug: "bar" },
-  { label: "Fruit Stand", slug: "fruit-stand" },
-  { label: "Florist", slug: "florist" },
-  { label: "Gym", slug: "gym" },
-  { label: "Salon", slug: "salon" },
-  { label: "Barber Shop", slug: "barber-shop" },
-  { label: "Bookstore", slug: "bookstore" },
-];
+type BusinessDetail = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  phone: string | null;
+  websiteUrl: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  priceLevel: number | null;
+  acceptsReservations: boolean;
+  offersOnlineWaitlist: boolean;
+  offersDelivery: boolean;
+  offersTakeout: boolean;
+  outdoorSeating: boolean;
+  timeZone: string;
+  createdAtUtc: string;
+  membershipRole: "owner" | "admin" | "manager";
+  categories?: string[];
+};
 
-const DAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-export default function NewBusinessPage() {
+export default function EditBusinessPage() {
+  const params = useParams();
   const router = useRouter();
+  const slug = params.slug as string;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const [businessId, setBusinessId] = useState<string>("");
 
   const [form, setForm] = useState({
     name: "",
-    slug: "",
     description: "",
     phone: "",
     websiteUrl: "",
@@ -51,33 +62,48 @@ export default function NewBusinessPage() {
     offersTakeout: false,
     outdoorSeating: false,
     timeZone: "America/Chicago",
-    hours: DAY_NAMES.map((_, index) => ({
-      dayOfWeek: index,
-      openTime: "09:00",
-      closeTime: "17:00",
-      isClosed: false,
-    })),
   });
 
-  const [slugTouched, setSlugTouched] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  useEffect(() => {
+    async function loadBusiness() {
+      try {
+        const res = await apiFetch(`/business/${slug}`, {
+          method: "GET",
+        });
 
-  function handleNameChange(value: string) {
-    setForm((prev) => ({
-      ...prev,
-      name: value,
-      slug: slugTouched ? prev.slug : slugify(value),
-    }));
-  }
+        const data: BusinessDetail = await res.json();
 
-  function handleSlugChange(value: string) {
-    setSlugTouched(true);
-    setForm((prev) => ({
-      ...prev,
-      slug: slugify(value),
-    }));
-  }
+        setBusinessId(data.id);
+        setForm({
+          name: data.name ?? "",
+          description: data.description ?? "",
+          phone: data.phone ?? "",
+          websiteUrl: data.websiteUrl ?? "",
+          address1: data.address1 ?? "",
+          address2: data.address2 ?? "",
+          city: data.city ?? "",
+          state: data.state ?? "",
+          postalCode: data.postalCode ?? "",
+          categorySlugs: data.categories ?? [],
+          priceLevel: data.priceLevel ? String(data.priceLevel) : "",
+          acceptsReservations: data.acceptsReservations,
+          offersOnlineWaitlist: data.offersOnlineWaitlist,
+          offersDelivery: data.offersDelivery,
+          offersTakeout: data.offersTakeout,
+          outdoorSeating: data.outdoorSeating,
+          timeZone: data.timeZone ?? "America/Chicago",
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load business");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (slug) {
+      loadBusiness();
+    }
+  }, [slug]);
 
   function updateField(field: string, value: string | boolean) {
     setForm((prev) => ({
@@ -86,33 +112,14 @@ export default function NewBusinessPage() {
     }));
   }
 
-  function toggleCategory(slug: string) {
-    setForm((prev) => ({
-      ...prev,
-      categorySlugs: prev.categorySlugs.includes(slug)
-        ? prev.categorySlugs.filter((x) => x !== slug)
-        : [...prev.categorySlugs, slug],
-    }));
-  }
-
-  function updateHour(index: number, field: "openTime" | "closeTime" | "isClosed", value: string | boolean) {
-    setForm((prev) => ({
-      ...prev,
-      hours: prev.hours.map((hour, i) =>
-        i === index ? { ...hour, [field]: value } : hour
-      ),
-    }));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setLoading(true);
+    setSaving(true);
 
     try {
-      const created = await createBusiness({
+      await updateBusiness(businessId, {
         name: form.name,
-        slug: form.slug || null,
         description: form.description || null,
         phone: form.phone || null,
         websiteUrl: form.websiteUrl || null,
@@ -129,38 +136,33 @@ export default function NewBusinessPage() {
         offersTakeout: form.offersTakeout,
         outdoorSeating: form.outdoorSeating,
         timeZone: form.timeZone,
-        hours: form.hours.map((hour) => ({
-          dayOfWeek: hour.dayOfWeek,
-          openTime: hour.isClosed ? null : hour.openTime,
-          closeTime: hour.isClosed ? null : hour.closeTime,
-          isClosed: hour.isClosed,
-        })),
       });
 
-      router.push(`/dashboard/business/${created.slug}`);
+      router.push(`/dashboard/business/${slug}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create business");
+      setError(err instanceof Error ? err.message : "Could not update business");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return <main style={{ padding: 24 }}>Loading...</main>;
   }
 
   return (
     <main style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Create Business</h1>
+      <div style={{ marginBottom: 16 }}>
+        <Link href={`/dashboard/business/${slug}`}>← Back to business dashboard</Link>
+      </div>
+
+      <h1>Edit Business</h1>
 
       <form onSubmit={handleSubmit}>
         <input
           placeholder="Name *"
           value={form.name}
-          onChange={(e) => handleNameChange(e.target.value)}
-          style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
-        />
-
-        <input
-          placeholder="Slug"
-          value={form.slug}
-          onChange={(e) => handleSlugChange(e.target.value)}
+          onChange={(e) => updateField("name", e.target.value)}
           style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
         />
 
@@ -173,16 +175,18 @@ export default function NewBusinessPage() {
 
         <div style={{ marginBottom: 16 }}>
           <h3>Business Category</h3>
-          
-          <div style={{ display: "grid", gap: 16 }}>
+
+          <div style={{ display: "grid", gap: 20 }}>
             {CATEGORY_TREE.map((group) => (
               <div key={group.slug}>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>{group.name}</div>
-            
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                  {group.name}
+                </div>
+
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   {group.children.map((category) => {
-                    const selected = form.categorySlugs.includes(category.slug);
-                  
+                    const isSelected = form.categorySlugs.includes(category.slug);
+
                     return (
                       <button
                         key={category.slug}
@@ -197,9 +201,10 @@ export default function NewBusinessPage() {
                           border: "1px solid #ccc",
                           borderRadius: 999,
                           padding: "8px 12px",
-                          background: selected ? "#111" : "#fff",
-                          color: selected ? "#fff" : "#111",
+                          background: isSelected ? "#111" : "#fff",
+                          color: isSelected ? "#fff" : "#111",
                           cursor: "pointer",
+                          fontSize: 14,
                         }}
                       >
                         {category.name}
@@ -209,10 +214,12 @@ export default function NewBusinessPage() {
                 </div>
               </div>
             ))}
-        
+
             <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Fallback</div>
-          
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                Not Listed?
+              </div>
+
               <button
                 type="button"
                 onClick={() =>
@@ -271,48 +278,6 @@ export default function NewBusinessPage() {
           </div>
         </div>
 
-        <div style={{ marginBottom: 24 }}>
-          <h3>Hours</h3>
-          <div style={{ display: "grid", gap: 12 }}>
-            {form.hours.map((hour, index) => (
-              <div
-                key={hour.dayOfWeek}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "140px 120px 120px 120px",
-                  gap: 12,
-                  alignItems: "center",
-                }}
-              >
-                <strong>{DAY_NAMES[hour.dayOfWeek]}</strong>
-
-                <input
-                  type="time"
-                  value={hour.openTime}
-                  disabled={hour.isClosed}
-                  onChange={(e) => updateHour(index, "openTime", e.target.value)}
-                />
-
-                <input
-                  type="time"
-                  value={hour.closeTime}
-                  disabled={hour.isClosed}
-                  onChange={(e) => updateHour(index, "closeTime", e.target.value)}
-                />
-
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={hour.isClosed}
-                    onChange={(e) => updateHour(index, "isClosed", e.target.checked)}
-                  />{" "}
-                  Closed
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <input
           placeholder="Phone"
           value={form.phone}
@@ -362,8 +327,8 @@ export default function NewBusinessPage() {
           style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create Business"}
+        <button type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
 

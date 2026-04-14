@@ -157,7 +157,9 @@ export default function BusinessDashboardPage() {
       <div style={{ marginBottom: 16 }}>
         <Link href="/dashboard">← Back to dashboard</Link>
       </div>
-
+      <div style={{ marginTop: 12, marginBottom: 20 }}>
+        <Link href={`/dashboard/business/${slug}/edit`}>Edit business</Link>
+      </div>
       <h1>{business.name}</h1>
       <p>
         <strong>Role:</strong> {business.membershipRole}

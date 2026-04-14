@@ -3,7 +3,7 @@
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { useMemo, useRef, useState } from "react";
 import type { SearchBusinessResult } from "@/lib/search";
-import Link from "next/link";
+import { googleMapsLoaderOptions } from "@/lib/googleMaps";
 
 type Bounds = {
   north: number;
@@ -29,28 +29,31 @@ const defaultCenter = {
 };
 
 export default function BusinessMap({ businesses, onSearchArea }: Props) {
-  const { isLoaded } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-  });
+  const { isLoaded } = useJsApiLoader(googleMapsLoaderOptions);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const [pendingBounds, setPendingBounds] = useState<Bounds | null>(null);
   const [showSearchArea, setShowSearchArea] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState<SearchBusinessResult | null>(null);
 
+  const businessesWithCoords = useMemo(
+    () => businesses.filter((b) => b.latitude !== null && b.longitude !== null),
+    [businesses]
+  );
+
   const center = useMemo(() => {
-    const withCoords = businesses.filter(
-      (b) => b.latitude !== null && b.longitude !== null
-    );
+    if (businessesWithCoords.length === 0) return defaultCenter;
 
-    if (withCoords.length === 0) return defaultCenter;
+    const first = businessesWithCoords[0];
+    const lat = Number(first.latitude);
+    const lng = Number(first.longitude);
 
-    return {
-      lat: Number(withCoords[0].latitude),
-      lng: Number(withCoords[0].longitude),
-    };
-  }, [businesses]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return defaultCenter;
+    }
+
+    return { lat, lng };
+  }, [businessesWithCoords]);
 
   function handleLoad(map: google.maps.Map) {
     mapRef.current = map;
@@ -71,6 +74,7 @@ export default function BusinessMap({ businesses, onSearchArea }: Props) {
       east: ne.lng(),
       west: sw.lng(),
     });
+
     setShowSearchArea(true);
   }
 
@@ -119,18 +123,22 @@ export default function BusinessMap({ businesses, onSearchArea }: Props) {
           fullscreenControl: false,
         }}
       >
-        {businesses
-          .filter((b) => b.latitude !== null && b.longitude !== null)
-          .map((business) => (
+        {businessesWithCoords.map((business) => {
+          const lat = Number(business.latitude);
+          const lng = Number(business.longitude);
+
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return null;
+          }
+
+          return (
             <Marker
               key={business.id}
-              position={{
-                lat: Number(business.latitude),
-                lng: Number(business.longitude),
-              }}
+              position={{ lat, lng }}
               onClick={() => setSelectedBusiness(business)}
             />
-          ))}
+          );
+        })}
       </GoogleMap>
 
       {selectedBusiness && (
@@ -143,17 +151,13 @@ export default function BusinessMap({ businesses, onSearchArea }: Props) {
             background: "#fff",
           }}
         >
-          <Link
-            href={`/business/${selectedBusiness.slug}`}
-            style={{ textDecoration: "none", color: "inherit" }}
-          >
-            <strong>{selectedBusiness.name}</strong>
-          </Link>
+          <strong>{selectedBusiness.name}</strong>
           <div style={{ marginTop: 6 }}>
-            {selectedBusiness.city ?? ""}{selectedBusiness.city && selectedBusiness.state ? ", " : ""}{selectedBusiness.state ?? ""}
+            {[selectedBusiness.city, selectedBusiness.state].filter(Boolean).join(", ")}
           </div>
           <div style={{ marginTop: 6 }}>
-            {selectedBusiness.reviewCount} review{selectedBusiness.reviewCount === 1 ? "" : "s"} •{" "}
+            {selectedBusiness.reviewCount} review
+            {selectedBusiness.reviewCount === 1 ? "" : "s"} •{" "}
             {Number(selectedBusiness.averageRating).toFixed(1)}
           </div>
         </div>

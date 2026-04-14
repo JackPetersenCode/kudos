@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System.Security.Claims;
+using OpenAI.Chat;
+using Kudos.Server.Services;
 
 namespace Kudos.Server.Controllers
 {
@@ -11,10 +13,12 @@ namespace Kudos.Server.Controllers
     public class PublicBusinessController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly OpenAIService _openAi;
 
-        public PublicBusinessController(IConfiguration configuration)
+        public PublicBusinessController(IConfiguration configuration, OpenAIService openAi)
         {
             _configuration = configuration;
+            _openAi = openAi;
         }
 
         [HttpGet("{slug}")]
@@ -254,16 +258,16 @@ namespace Kudos.Server.Controllers
                     User.FindFirst(ClaimTypes.Email)?.Value ??
                     User.FindFirst(ClaimTypes.Name)?.Value ??
                     User.Identity?.Name;
-
+        
                 var connectionString = _configuration.GetConnectionString("WebApiDatabase");
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
                     throw new InvalidOperationException("Missing connection string: WebApiDatabase");
                 }
-
+        
                 await using var connection = new NpgsqlConnection(connectionString);
                 await connection.OpenAsync();
-
+        
                 var summarySql = """
                     SELECT
                         COUNT(*)::int AS review_count,
@@ -271,21 +275,55 @@ namespace Kudos.Server.Controllers
                     FROM reviews
                     WHERE business_id = @business_id;
                     """;
-
+        
                 int reviewCount;
                 decimal averageRating;
-
+        
                 await using (var summaryCmd = new NpgsqlCommand(summarySql, connection))
                 {
                     summaryCmd.Parameters.AddWithValue("@business_id", businessId);
-
+        
                     await using var summaryReader = await summaryCmd.ExecuteReaderAsync();
                     await summaryReader.ReadAsync();
-
+        
                     reviewCount = summaryReader.GetInt32(0);
                     averageRating = summaryReader.GetDecimal(1);
                 }
-
+        
+                var tagCountsSql = """
+                    SELECT
+                        rpt.tag_name,
+                        COUNT(*)::int AS count
+                    FROM review_positive_tags rpt
+                    INNER JOIN reviews r
+                        ON r.id = rpt.review_id
+                    WHERE r.business_id = @business_id
+                    GROUP BY rpt.tag_name;
+                    """;
+        
+                var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["service"] = 0,
+                    ["quality"] = 0,
+                    ["cleanliness"] = 0,
+                    ["value"] = 0,
+                    ["experience"] = 0
+                };
+        
+                await using (var tagCountsCmd = new NpgsqlCommand(tagCountsSql, connection))
+                {
+                    tagCountsCmd.Parameters.AddWithValue("@business_id", businessId);
+        
+                    await using var tagCountsReader = await tagCountsCmd.ExecuteReaderAsync();
+        
+                    while (await tagCountsReader.ReadAsync())
+                    {
+                        var tagName = tagCountsReader.GetString(0);
+                        var count = tagCountsReader.GetInt32(1);
+                        tagCounts[tagName] = count;
+                    }
+                }
+        
                 var reviewsSql = """
                     SELECT
                         r.id,
@@ -300,36 +338,100 @@ namespace Kudos.Server.Controllers
                     WHERE r.business_id = @business_id
                     ORDER BY r.created_at_utc DESC;
                     """;
-
+        
                 await using var cmd = new NpgsqlCommand(reviewsSql, connection);
                 cmd.Parameters.AddWithValue("@business_id", businessId);
-
+        
                 await using var reader = await cmd.ExecuteReaderAsync();
-
+        
                 var reviews = new List<object>();
-
+                var reviewIds = new List<Guid>();
+        
                 while (await reader.ReadAsync())
                 {
+                    var reviewId = reader.GetGuid(0);
+                    reviewIds.Add(reviewId);
+        
                     var userEmail = reader.GetString(5);
-
+        
                     reviews.Add(new
                     {
-                        id = reader.GetGuid(0),
+                        id = reviewId,
                         rating = reader.GetInt16(1),
                         title = reader.IsDBNull(2) ? null : reader.GetString(2),
                         body = reader.IsDBNull(3) ? null : reader.GetString(3),
                         createdAtUtc = reader.GetDateTime(4),
                         userEmail,
+                        positiveTags = new List<string>(),
                         isOwnReview = !string.IsNullOrWhiteSpace(currentEmail) &&
                                       string.Equals(currentEmail, userEmail, StringComparison.OrdinalIgnoreCase)
                     });
                 }
-
+        
+                await reader.CloseAsync();
+        
+                var tagsByReviewId = new Dictionary<Guid, List<string>>();
+        
+                if (reviewIds.Count > 0)
+                {
+                    var reviewTagsSql = """
+                        SELECT review_id, tag_name
+                        FROM review_positive_tags
+                        WHERE review_id = ANY(@review_ids);
+                        """;
+        
+                    await using var reviewTagsCmd = new NpgsqlCommand(reviewTagsSql, connection);
+                    reviewTagsCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+        
+                    await using var reviewTagsReader = await reviewTagsCmd.ExecuteReaderAsync();
+        
+                    while (await reviewTagsReader.ReadAsync())
+                    {
+                        var reviewId = reviewTagsReader.GetGuid(0);
+                        var tagName = reviewTagsReader.GetString(1);
+        
+                        if (!tagsByReviewId.ContainsKey(reviewId))
+                        {
+                            tagsByReviewId[reviewId] = new List<string>();
+                        }
+        
+                        tagsByReviewId[reviewId].Add(tagName);
+                    }
+                }
+        
+                var finalReviews = reviews.Select(r =>
+                {
+                    var reviewType = r.GetType();
+                    var reviewId = (Guid)reviewType.GetProperty("id")!.GetValue(r)!;
+        
+                    return new
+                    {
+                        id = reviewId,
+                        rating = (short)reviewType.GetProperty("rating")!.GetValue(r)!,
+                        title = (string?)reviewType.GetProperty("title")!.GetValue(r),
+                        body = (string?)reviewType.GetProperty("body")!.GetValue(r),
+                        createdAtUtc = (DateTime)reviewType.GetProperty("createdAtUtc")!.GetValue(r)!,
+                        userEmail = (string)reviewType.GetProperty("userEmail")!.GetValue(r)!,
+                        positiveTags = tagsByReviewId.TryGetValue(reviewId, out var tags)
+                            ? tags
+                            : new List<string>(),
+                        isOwnReview = (bool)reviewType.GetProperty("isOwnReview")!.GetValue(r)!
+                    };
+                });
+        
                 return Ok(new
                 {
                     reviewCount,
                     averageRating,
-                    reviews
+                    categoryClicks = new
+                    {
+                        service = tagCounts["service"],
+                        quality = tagCounts["quality"],
+                        cleanliness = tagCounts["cleanliness"],
+                        value = tagCounts["value"],
+                        experience = tagCounts["experience"]
+                    },
+                    reviews = finalReviews
                 });
             }
             catch (Exception ex)
@@ -342,7 +444,6 @@ namespace Kudos.Server.Controllers
                 });
             }
         }
-
         [HttpPost("{businessId:guid}/reviews")]
         [Authorize]
         public async Task<IActionResult> CreateReview(Guid businessId, [FromBody] CreateReviewRequest request)
@@ -395,6 +496,39 @@ namespace Kudos.Server.Controllers
                     userId = (Guid)result;
                 }
 
+                var textToAnalyze = $"{request.Title} {request.Body}".Trim();
+
+                string? sentiment = null;
+
+                if (!string.IsNullOrWhiteSpace(textToAnalyze))
+                {
+                    try
+                    {
+                        sentiment = await _openAi.AnalyzeSentiment(textToAnalyze);
+                    }
+                    catch (SentimentServiceUnavailableException)
+                    {
+                        return StatusCode(503, new
+                        {
+                            success = false,
+                            reason = "sentiment_unavailable",
+                            message = "Review moderation is temporarily unavailable. Please try again later."
+                        });
+                    }
+                }
+
+                if (string.Equals(sentiment, "negative", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        reason = "negative_sentiment",
+                        message = "Your review appears to be negative and cannot be submitted."
+                    });
+                }
+
+                var reviewId = Guid.NewGuid();
+
                 var insertSql = """
                     INSERT INTO reviews (
                         id,
@@ -416,23 +550,69 @@ namespace Kudos.Server.Controllers
                     );
                     """;
 
-                await using var cmd = new NpgsqlCommand(insertSql, connection);
-                cmd.Parameters.AddWithValue("@id", Guid.NewGuid());
-                cmd.Parameters.AddWithValue("@business_id", businessId);
-                cmd.Parameters.AddWithValue("@user_id", userId);
-                cmd.Parameters.AddWithValue("@rating", (short)request.Rating);
-                cmd.Parameters.AddWithValue("@title", (object?)request.Title ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@body", (object?)request.Body ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+                await using (var cmd = new NpgsqlCommand(insertSql, connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", reviewId);
+                    cmd.Parameters.AddWithValue("@business_id", businessId);
+                    cmd.Parameters.AddWithValue("@user_id", userId);
+                    cmd.Parameters.AddWithValue("@rating", (short)request.Rating);
+                    cmd.Parameters.AddWithValue("@title", (object?)request.Title ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@body", (object?)request.Body ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
 
-                await cmd.ExecuteNonQueryAsync();
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                var allowedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "service",
+                    "quality",
+                    "cleanliness",
+                    "value",
+                    "experience"
+                };
+
+                var normalizedTags = (request.PositiveTags ?? new List<string>())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToLowerInvariant())
+                    .Where(x => allowedTags.Contains(x))
+                    .Distinct()
+                    .ToList();
+
+                foreach (var tag in normalizedTags)
+                {
+                    var insertTagSql = """
+                        INSERT INTO review_positive_tags (
+                            id,
+                            review_id,
+                            tag_name,
+                            created_at_utc
+                        )
+                        VALUES (
+                            @id,
+                            @review_id,
+                            @tag_name,
+                            @created_at_utc
+                        );
+                        """;
+
+                    await using var tagCmd = new NpgsqlCommand(insertTagSql, connection);
+                    tagCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                    tagCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    tagCmd.Parameters.AddWithValue("@tag_name", tag);
+                    tagCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+
+                    await tagCmd.ExecuteNonQueryAsync();
+                }
 
                 return Ok(new
                 {
                     businessId,
+                    reviewId,
                     rating = request.Rating,
                     title = request.Title,
-                    body = request.Body
+                    body = request.Body,
+                    positiveTags = normalizedTags
                 });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")

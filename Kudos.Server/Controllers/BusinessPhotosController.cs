@@ -10,7 +10,7 @@ using Kudos.Server.Data;
 namespace Kudos.Server.Controllers
 {
     [ApiController]
-    [Route("api/businesses/{businessId:guid}/photos")]
+    [Route("api/business/{businessId:guid}/photos")]
     public class BusinessPhotosController : ControllerBase
     {
         private readonly IAmazonS3 _s3;
@@ -118,7 +118,7 @@ namespace Kudos.Server.Controllers
                 }
 
                 var extension = Path.GetExtension(request.FileName);
-                var key = $"businesses/{businessId}/photos/{Guid.NewGuid()}{extension}";
+                var key = $"business/{businessId}/photos/{Guid.NewGuid()}{extension}";
 
                 var presignedRequest = new GetPreSignedUrlRequest
                 {

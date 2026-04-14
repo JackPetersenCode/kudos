@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Kudos.Server.Data;
+using Kudos.Server.Services;
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,9 @@ builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
+
+Console.WriteLine("ENV KEY: " + Environment.GetEnvironmentVariable("OPENAI__ApiKey"));
+Console.WriteLine("CONFIG KEY: " + builder.Configuration["OpenAI:ApiKey"]);
 
 builder.Services.AddCors(options =>
 {
@@ -74,6 +79,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<OpenAIService>();
 
 var app = builder.Build();
 

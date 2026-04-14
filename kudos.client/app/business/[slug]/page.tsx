@@ -27,6 +27,14 @@ const DAY_NAMES = [
   "Saturday",
 ];
 
+const CATEGORY_META = [
+  { key: "service", label: "Service", icon: "🤝" },
+  { key: "quality", label: "Quality", icon: "⭐" },
+  { key: "cleanliness", label: "Cleanliness", icon: "🧼" },
+  { key: "value", label: "Value", icon: "💰" },
+  { key: "experience", label: "Experience", icon: "✨" },
+] as const;
+
 export default function PublicBusinessPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -37,6 +45,13 @@ export default function PublicBusinessPage() {
   const [reviews, setReviews] = useState<BusinessReview[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
+  const [categoryClicks, setCategoryClicks] = useState({
+    service: 0,
+    quality: 0,
+    cleanliness: 0,
+    value: 0,
+    experience: 0,
+  });
   const [editingReview, setEditingReview] = useState<BusinessReview | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -47,6 +62,7 @@ export default function PublicBusinessPage() {
     setReviews(reviewData.reviews);
     setReviewCount(reviewData.reviewCount);
     setAverageRating(Number(reviewData.averageRating));
+    setCategoryClicks(reviewData.categoryClicks);
   }
 
   async function handleDeleteReview(reviewId: string) {
@@ -65,7 +81,6 @@ export default function PublicBusinessPage() {
     async function loadPage() {
       try {
         const businessData = await getPublicBusiness(slug);
-        console.log(businessData)
         setBusiness(businessData);
 
         const [photoData, hourData] = await Promise.all([
@@ -112,6 +127,22 @@ export default function PublicBusinessPage() {
   const primaryPhoto = photos.find((p) => p.isPrimary) ?? photos[0] ?? null;
   const ownReview = reviews.find((r) => r.isOwnReview) ?? null;
 
+  const latitude =
+    business.latitude !== null && business.latitude !== undefined
+      ? Number(business.latitude)
+      : null;
+
+  const longitude =
+    business.longitude !== null && business.longitude !== undefined
+      ? Number(business.longitude)
+      : null;
+
+  const hasValidCoordinates =
+    latitude !== null &&
+    longitude !== null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
+
   return (
     <main style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
       <h1>{business.name}</h1>
@@ -123,6 +154,32 @@ export default function PublicBusinessPage() {
         {" • "}
         {business.isOpenNow ? "Open Now" : "Closed"}
         {business.priceLevel ? ` • ${"$".repeat(business.priceLevel)}` : ""}
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 600, marginBottom: 10 }}>
+          What people say this business does well
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          {CATEGORY_META.map((category) => (
+            <div
+              key={category.key}
+              style={{
+                border: "1px solid #ddd",
+                borderRadius: 999,
+                padding: "10px 14px",
+                background: "#fff",
+              }}
+            >
+              <span style={{ marginRight: 8 }}>{category.icon}</span>
+              {category.label}
+              <span style={{ marginLeft: 8, fontWeight: 700 }}>
+                {categoryClicks[category.key]}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {primaryPhoto && (
@@ -165,13 +222,13 @@ export default function PublicBusinessPage() {
         </div>
       )}
 
-      {business.latitude !== null && business.longitude !== null && (
+      {hasValidCoordinates && (
         <section style={{ marginBottom: 32 }}>
           <h2>Map</h2>
           <BusinessLocationMap
             name={business.name}
-            latitude={Number(business.latitude)}
-            longitude={Number(business.longitude)}
+            latitude={latitude}
+            longitude={longitude}
           />
         </section>
       )}
@@ -240,6 +297,25 @@ export default function PublicBusinessPage() {
                 <div style={{ marginBottom: 8 }}>
                   <strong>{review.rating}/5</strong> by {review.userEmail}
                 </div>
+
+                {review.positiveTags.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    {review.positiveTags.map((tag) => (
+                      <span
+                        key={tag}
+                        style={{
+                          border: "1px solid #ddd",
+                          borderRadius: 999,
+                          padding: "4px 10px",
+                          fontSize: 12,
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {review.title && <h3 style={{ marginTop: 0 }}>{review.title}</h3>}
                 <p>{review.body ?? ""}</p>
                 <small>{new Date(review.createdAtUtc).toLocaleString()}</small>

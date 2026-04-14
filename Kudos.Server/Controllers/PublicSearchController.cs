@@ -130,8 +130,11 @@ namespace Kudos.Server.Controllers
                                 b.city ILIKE @where_pattern OR
                                 b.state ILIKE @where_pattern)
                             AND
-                            ((@category::text IS NULL) OR
-                                c.slug = @category)
+                            (
+                                (@category::text IS NULL)
+                                OR c.slug = @category
+                                OR c.parent_slug = @category
+                            )
                             AND
                             ((@city::text IS NULL) OR
                                 b.city ILIKE @city_pattern)

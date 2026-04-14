@@ -23,7 +23,7 @@ type CompleteUploadResponse = {
 export async function getBusinessPhotos(
   businessId: string
 ): Promise<BusinessPhoto[]> {
-  const res = await apiFetch(`/businesses/${businessId}/photos`, {
+  const res = await apiFetch(`/business/${businessId}/photos`, {
     method: "GET",
   });
 
@@ -35,7 +35,7 @@ export async function uploadBusinessPhoto(
   file: File,
   isPrimary: boolean = false
 ): Promise<CompleteUploadResponse> {
-  const uploadUrlRes = await apiFetch(`/businesses/${businessId}/photos/upload-url`, {
+  const uploadUrlRes = await apiFetch(`/business/${businessId}/photos/upload-url`, {
     method: "POST",
     body: JSON.stringify({
       fileName: file.name,
@@ -57,7 +57,7 @@ export async function uploadBusinessPhoto(
     throw new Error("Failed to upload file to storage");
   }
 
-  const completeRes = await apiFetch(`/businesses/${businessId}/photos/complete`, {
+  const completeRes = await apiFetch(`/business/${businessId}/photos/complete`, {
     method: "POST",
     body: JSON.stringify({
       storageKey: uploadInfo.storageKey,
@@ -75,7 +75,7 @@ export async function deleteBusinessPhoto(
   businessId: string,
   photoId: string
 ): Promise<void> {
-  const res = await apiFetch(`/businesses/${businessId}/photos/${photoId}`, {
+  const res = await apiFetch(`/business/${businessId}/photos/${photoId}`, {
     method: "DELETE",
   });
 

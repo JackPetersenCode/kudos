@@ -46,12 +46,20 @@ export type BusinessReview = {
   body: string | null;
   createdAtUtc: string;
   userEmail: string;
+  positiveTags: string[];
   isOwnReview: boolean;
 };
 
 export type BusinessReviewsResponse = {
   reviewCount: number;
   averageRating: number;
+  categoryClicks: {
+    service: number;
+    quality: number;
+    cleanliness: number;
+    value: number;
+    experience: number;
+  };
   reviews: BusinessReview[];
 };
 
@@ -111,6 +119,7 @@ export async function createBusinessReview(
     rating: number;
     title?: string | null;
     body?: string | null;
+    positiveTags?: string[];
   }
 ) {
   const res = await apiFetch(`/public/business/${businessId}/reviews`, {

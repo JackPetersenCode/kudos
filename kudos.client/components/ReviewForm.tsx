@@ -18,6 +18,14 @@ type ReviewFormProps = {
   onCancelEdit?: () => void;
 };
 
+const POSITIVE_CATEGORIES = [
+  { key: "service", label: "Service", icon: "🤝" },
+  { key: "quality", label: "Quality", icon: "⭐" },
+  { key: "cleanliness", label: "Cleanliness", icon: "🧼" },
+  { key: "value", label: "Value", icon: "💰" },
+  { key: "experience", label: "Experience", icon: "✨" },
+] as const;
+
 export default function ReviewForm({
   businessId,
   onReviewCreated,
@@ -27,11 +35,20 @@ export default function ReviewForm({
   const [rating, setRating] = useState(existingReview?.rating ?? 5);
   const [title, setTitle] = useState(existingReview?.title ?? "");
   const [body, setBody] = useState(existingReview?.body ?? "");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const isEditMode = !!existingReview;
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((x) => x !== tag)
+        : [...prev, tag]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,18 +63,37 @@ export default function ReviewForm({
           title: title || null,
           body: body || null,
         });
+
         setSuccess("Review updated.");
-      } else {
+        await onReviewCreated();
+        return;
+      }
+
+      try {
         await createBusinessReview(businessId, {
           rating,
           title: title || null,
           body: body || null,
+          positiveTags: selectedTags,
         });
-        setSuccess("Review posted.");
-        setTitle("");
-        setBody("");
-        setRating(5);
+      } catch (err) {
+        const error = err as Error & { reason?: string };
+
+        if (error.reason === "negative_sentiment") {
+          window.alert(
+            `Mama always says, "If you don't have anything nice to say, don't say anything at all!"`
+          );
+          return;
+        }
+
+        throw err;
       }
+
+      setSuccess("Review posted.");
+      setTitle("");
+      setBody("");
+      setRating(5);
+      setSelectedTags([]);
 
       await onReviewCreated();
     } catch (err) {
@@ -87,6 +123,39 @@ export default function ReviewForm({
           </select>
         </label>
       </div>
+
+      {!isEditMode && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 600 }}>
+            What did this business do well?
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {POSITIVE_CATEGORIES.map((category) => {
+              const isSelected = selectedTags.includes(category.key);
+
+              return (
+                <button
+                  key={category.key}
+                  type="button"
+                  onClick={() => toggleTag(category.key)}
+                  style={{
+                    border: "1px solid #ccc",
+                    borderRadius: 999,
+                    padding: "10px 14px",
+                    background: isSelected ? "#111" : "#fff",
+                    color: isSelected ? "#fff" : "#111",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ marginRight: 6 }}>{category.icon}</span>
+                  {category.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <input
         placeholder="Review title"
