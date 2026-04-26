@@ -1,0 +1,18 @@
+# Yelp data files
+*.zip
+*.tar
+yelp-data/
+Yelp-*/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.idea/
+*.swp
+*.swo
+
+# Temp
+/tmp/

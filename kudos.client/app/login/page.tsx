@@ -1,4 +1,3 @@
-// src/app/login/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -15,9 +14,12 @@ export default function LoginPage() {
 
   return (
     <AuthForm
-      title="Login"
+      title="Welcome back"
       buttonText="Sign in"
       onSubmit={handleLogin}
+      altText="Don't have an account?"
+      altLink="/register"
+      altLinkText="Sign up"
     />
   );
 }

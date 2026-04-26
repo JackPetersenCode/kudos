@@ -154,15 +154,115 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== ERROR =====");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================");
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
 
-                return StatusCode(500, new
+        [HttpGet("trending")]
+        public async Task<IActionResult> GetTrending()
+        {
+            try
+            {
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                var sql = """
+                    SELECT
+                        b.id, b.name, b.slug, b.city, b.state,
+                        (SELECT original_url FROM business_photos bp WHERE bp.business_id = b.id ORDER BY is_primary DESC LIMIT 1) AS photo_url,
+                        COALESCE(AVG(r.rating), 0)::numeric(10,2) AS average_rating,
+                        COUNT(r.id)::int AS recent_review_count,
+                        COALESCE(
+                            (SELECT ARRAY_AGG(DISTINCT c.name) FROM business_categories bc
+                             JOIN categories c ON c.id = bc.category_id
+                             WHERE bc.business_id = b.id),
+                            ARRAY[]::text[]
+                        ) AS category_names
+                    FROM businesses b
+                    INNER JOIN reviews r ON r.business_id = b.id
+                    WHERE r.created_at_utc >= now() - INTERVAL '30 days'
+                    GROUP BY b.id, b.name, b.slug, b.city, b.state
+                    ORDER BY recent_review_count DESC, average_rating DESC
+                    LIMIT 8;
+                    """;
+
+                await using var cmd = new NpgsqlCommand(sql, connection);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                var results = new List<object>();
+
+                while (await reader.ReadAsync())
                 {
-                    message = ex.Message,
-                    stackTrace = ex.StackTrace
-                });
+                    results.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        name = reader.GetString(1),
+                        slug = reader.GetString(2),
+                        city = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        state = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        photoUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        averageRating = reader.GetDecimal(6),
+                        recentReviewCount = reader.GetInt32(7),
+                        categories = reader.IsDBNull(8) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(8)
+                    });
+                }
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("recent")]
+        public async Task<IActionResult> GetRecentlyAdded()
+        {
+            try
+            {
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                var sql = """
+                    SELECT
+                        b.id, b.name, b.slug, b.city, b.state,
+                        (SELECT original_url FROM business_photos bp WHERE bp.business_id = b.id ORDER BY is_primary DESC LIMIT 1) AS photo_url,
+                        COALESCE(
+                            (SELECT ARRAY_AGG(DISTINCT c.name) FROM business_categories bc
+                             JOIN categories c ON c.id = bc.category_id
+                             WHERE bc.business_id = b.id),
+                            ARRAY[]::text[]
+                        ) AS category_names
+                    FROM businesses b
+                    WHERE b.yelp_id IS NULL
+                    ORDER BY b.created_at_utc DESC
+                    LIMIT 8;
+                    """;
+
+                await using var cmd = new NpgsqlCommand(sql, connection);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                var results = new List<object>();
+
+                while (await reader.ReadAsync())
+                {
+                    results.Add(new
+                    {
+                        id = reader.GetGuid(0),
+                        name = reader.GetString(1),
+                        slug = reader.GetString(2),
+                        city = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        state = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        photoUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        categories = reader.IsDBNull(6) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(6)
+                    });
+                }
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
             }
         }
     }

@@ -1,81 +1,153 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { SearchBusinessResult } from "@/lib/search";
+import { getPlaceholderImage } from "@/lib/placeholderImages";
 
 type Props = {
   business: SearchBusinessResult;
 };
 
 export default function BusinessCard({ business }: Props) {
+  const placeholderUrl = getPlaceholderImage(business.categories);
+  const photoUrl = business.primaryPhotoUrl?.trim() || placeholderUrl;
+  const [src, setSrc] = useState(photoUrl);
+
+  const truncatedDesc = business.description
+    ? business.description.length > 100
+      ? business.description.slice(0, 100) + "..."
+      : business.description
+    : null;
+
   return (
     <Link
       href={`/business/${business.slug}`}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        display: "block",
-      }}
+      style={{ textDecoration: "none", color: "inherit", display: "block" }}
     >
-      <div
-        style={{
-          border: "1px solid #ddd",
-          borderRadius: 12,
-          padding: 16,
-          display: "grid",
-          gridTemplateColumns: business.primaryPhotoUrl ? "160px 1fr" : "1fr",
-          gap: 16,
-          cursor: "pointer",
-        }}
-      >
-        {business.primaryPhotoUrl && (
+      <div className="biz-card">
+        <div className="biz-card-img">
           <img
-            src={business.primaryPhotoUrl}
+            src={src}
             alt={business.name}
-            style={{
-              width: 160,
-              height: 120,
-              objectFit: "cover",
-              borderRadius: 8,
+            onError={() => {
+              if (src !== placeholderUrl) setSrc(placeholderUrl);
             }}
           />
-        )}
+        </div>
 
-        <div>
-          <h2 style={{ margin: "0 0 8px 0" }}>{business.name}</h2>
+        <div className="biz-card-body">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h3 className="biz-card-name">{business.name}</h3>
+            {business.isVerified && <span title="Verified" style={{ color: "var(--color-accent)", fontSize: 14 }}>✓</span>}
+            {business.isPremium && <span className="tag-accent" style={{ fontSize: 10, padding: "2px 6px" }}>Premium</span>}
+          </div>
 
-          <div style={{ marginBottom: 8, color: "#555" }}>
-            <strong>{Number(business.averageRating).toFixed(1)}</strong> / 5
-            {" • "}
-            {business.reviewCount} review{business.reviewCount === 1 ? "" : "s"}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span
+              className={business.isOpenNow ? "tag-success" : "tag"}
+              style={{ fontSize: 11, padding: "2px 8px" }}
+            >
+              {business.isOpenNow ? "Open" : "Closed"}
+            </span>
+
+            {business.reviewCount > 0 && (
+              <span className="tag-accent" style={{ fontSize: 11, padding: "2px 8px" }}>
+                {business.reviewCount} review{business.reviewCount === 1 ? "" : "s"}
+              </span>
+            )}
+
+            {business.distanceMiles != null && (
+              <span className="tag" style={{ fontSize: 11, padding: "2px 8px" }}>
+                {Number(business.distanceMiles) < 1
+                  ? `${(Number(business.distanceMiles) * 5280).toFixed(0)} ft`
+                  : `${Number(business.distanceMiles).toFixed(1)} mi`}
+              </span>
+            )}
           </div>
 
           {business.categories.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-              {business.categories.map((category) => (
-                <span
-                  key={category}
-                  style={{
-                    fontSize: 12,
-                    padding: "4px 8px",
-                    borderRadius: 999,
-                    background: "#f2f2f2",
-                  }}
-                >
-                  {category}
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {business.categories.slice(0, 3).map((category, i) => (
+                <span key={category} style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+                  {category}{i < Math.min(business.categories.length, 3) - 1 ? " ·" : ""}
                 </span>
               ))}
             </div>
           )}
 
-          <p style={{ margin: "0 0 8px 0", color: "#555" }}>
-            {[business.city, business.state].filter(Boolean).join(", ") || "Location not provided"}
-          </p>
+          {truncatedDesc && (
+            <div className="biz-card-desc">{truncatedDesc}</div>
+          )}
 
-          <p style={{ margin: 0 }}>
-            {business.description ?? "No description provided."}
-          </p>
+          <div className="biz-card-location">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {[business.city, business.state].filter(Boolean).join(", ") || "Location not listed"}
+          </div>
         </div>
+
+        <style jsx>{`
+          .biz-card {
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background: var(--color-surface);
+            overflow: hidden;
+            transition: all var(--transition);
+            display: grid;
+            grid-template-columns: 170px 1fr;
+          }
+          .biz-card:hover {
+            border-color: var(--color-text-muted);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+          }
+          .biz-card-img {
+            overflow: hidden;
+          }
+          .biz-card-img img {
+            width: 100%;
+            height: 100%;
+            min-height: 150px;
+            object-fit: cover;
+            display: block;
+          }
+          .biz-card-body {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+          }
+          .biz-card-name {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.3;
+          }
+          .biz-card-desc {
+            color: var(--color-text-secondary);
+            font-size: 12px;
+            line-height: 1.5;
+          }
+          .biz-card-location {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--color-text-muted);
+            font-size: 12px;
+            margin-top: auto;
+          }
+          @media (max-width: 600px) {
+            .biz-card {
+              grid-template-columns: 1fr;
+            }
+            .biz-card-img img {
+              height: 160px;
+            }
+          }
+        `}</style>
       </div>
     </Link>
   );

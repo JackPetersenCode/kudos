@@ -48,7 +48,7 @@ export async function createBusiness(
 }
 
 export async function updateBusiness(
-  businessId: string,
+  slugOrId: string,
   payload: {
     name: string;
     description?: string | null;
@@ -67,9 +67,10 @@ export async function updateBusiness(
     offersTakeout: boolean;
     outdoorSeating: boolean;
     timeZone: string;
+    hours?: BusinessHourInput[];
   }
 ) {
-  const res = await apiFetch(`/business/${businessId}`, {
+  const res = await apiFetch(`/business/${slugOrId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

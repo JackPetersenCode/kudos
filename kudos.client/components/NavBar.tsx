@@ -1,174 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryMegaMenu from "@/components/CategoryMegaMenu";
+import SearchAutocomplete from "@/components/SearchAutocomplete";
+import ReputaterLogo from "@/components/ReputaterLogo";
+import { getUnreadNotificationCount } from "@/lib/features";
 
 export default function NavBar() {
   const router = useRouter();
   const [what, setWhat] = useState("");
   const [where, setWhere] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    function syncAuth() {
+      const token = localStorage.getItem("token");
+      const loggedIn = !!token;
+      setIsLoggedIn(loggedIn);
+      if (loggedIn) {
+        getUnreadNotificationCount()
+          .then((data) => setUnreadCount(data.unreadCount))
+          .catch(() => {});
+      } else {
+        setUnreadCount(0);
+      }
+    }
+
+    syncAuth();
+    window.addEventListener("auth-changed", syncAuth);
+    return () => window.removeEventListener("auth-changed", syncAuth);
+  }, []);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-
     const params = new URLSearchParams();
     if (what.trim()) params.set("q", what.trim());
     if (where.trim()) params.set("where", where.trim());
-
     router.push(`/search?${params.toString()}`);
   }
 
   return (
-    <header
-      style={{
-        borderBottom: "1px solid #e5e5e5",
-        background: "#fff",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1240,
-          margin: "0 auto",
-          padding: "14px 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 18,
-            flexWrap: "wrap",
-          }}
-        >
-          <Link
-            href="/"
-            style={{
-              textDecoration: "none",
-              color: "#111",
-              fontSize: 24,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            Kudos
+    <header className="navbar">
+      <div className="navbar-inner">
+        <Link href="/" className="navbar-logo">
+          <ReputaterLogo size={34} />
+        </Link>
+
+        <form onSubmit={handleSearch} className="navbar-search">
+          <div className="navbar-search-inputs">
+            <SearchAutocomplete
+              value={what}
+              onChange={setWhat}
+              placeholder="Search businesses..."
+              icon={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              }
+            />
+            <div className="search-divider" />
+            <div className="search-input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="search-icon">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <input
+                placeholder="City, state, or zip"
+                value={where}
+                onChange={(e) => setWhere(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+          <button type="submit" className="search-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
+        </form>
+
+        <nav className="navbar-nav">
+          <Link href="/write-review" className="nav-link">
+            <div className="flex-container">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+              </svg>
+              <div className="pad-left">Write a Review</div>
+            </div>
           </Link>
 
-          <form
-            onSubmit={handleSearch}
-            style={{
-              flex: "1 1 560px",
-              minWidth: 280,
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto",
-              gap: 8,
-              alignItems: "center",
-            }}
+          <Link href="/leaderboard" className="nav-link">
+            <div className="flex-container">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z" />
+              </svg>
+              <div className="pad-left">Leaderboard</div>
+            </div>
+          </Link>
+
+          {/* Always render the notification + account links to avoid layout shift.
+              The bell is hidden via CSS when logged out; the account icon always shows
+              and just changes its href. No conditional mounting = no pop-in. */}
+          <Link
+            href="/dashboard/notifications"
+            className="nav-link"
+            style={{ display: isLoggedIn ? undefined : "none" }}
           >
-            <input
-              placeholder="What"
-              value={what}
-              onChange={(e) => setWhat(e.target.value)}
-              style={{
-                width: "100%",
-                minWidth: 0,
-                padding: "11px 12px",
-                borderRadius: 10,
-                border: "1px solid #d0d0d0",
-                boxSizing: "border-box",
-              }}
-            />
+            <div className="flex-container nav-notif">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="notif-badge">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </div>
+          </Link>
 
-            <input
-              placeholder="Where"
-              value={where}
-              onChange={(e) => setWhere(e.target.value)}
-              style={{
-                width: "100%",
-                minWidth: 0,
-                padding: "11px 12px",
-                borderRadius: 10,
-                border: "1px solid #d0d0d0",
-                boxSizing: "border-box",
-              }}
-            />
-
-            <button
-              type="submit"
-              style={{
-                padding: "11px 16px",
-                borderRadius: 10,
-                border: "1px solid #111",
-                background: "#111",
-                color: "#fff",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Search
-            </button>
-          </form>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexShrink: 0,
-              flexWrap: "wrap",
-            }}
-          >
-            <CategoryMegaMenu />
-
-            <Link
-              href="/map"
-              style={{
-                textDecoration: "none",
-                color: "#111",
-                fontWeight: 600,
-                padding: "10px 12px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Map
-            </Link>
-
-            <Link
-              href="/dashboard"
-              style={{
-                textDecoration: "none",
-                color: "#111",
-                fontWeight: 600,
-                padding: "10px 12px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Dashboard
-            </Link>
-          </div>
-        </div>
+          <Link href={isLoggedIn ? "/dashboard" : "/login"} className="nav-link">
+            <div className="flex-container">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+              </svg>
+              {!isLoggedIn && <div className="pad-left">Sign in</div>}
+            </div>
+          </Link>
+        </nav>
       </div>
 
-      <style jsx>{`
-        @media (max-width: 900px) {
-          form {
-            grid-template-columns: 1fr 1fr auto !important;
-            width: 100%;
-          }
-        }
+      <div className="navbar-categories">
+        <CategoryMegaMenu />
+      </div>
 
-        @media (max-width: 680px) {
-          form {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </header>
   );
 }

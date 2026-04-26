@@ -123,6 +123,7 @@ namespace Kudos.Server.Controllers
                         offers_takeout,
                         outdoor_seating,
                         time_zone,
+                        added_by_user_id,
                         created_at_utc
                     )
                     VALUES (
@@ -146,6 +147,7 @@ namespace Kudos.Server.Controllers
                         @offers_takeout,
                         @outdoor_seating,
                         @time_zone,
+                        @added_by_user_id,
                         @created_at_utc
                     );
                     """;
@@ -173,38 +175,15 @@ namespace Kudos.Server.Controllers
                     insertBusinessCmd.Parameters.AddWithValue("@offers_takeout", request.OffersTakeout);
                     insertBusinessCmd.Parameters.AddWithValue("@outdoor_seating", request.OutdoorSeating);
                     insertBusinessCmd.Parameters.AddWithValue("@time_zone", request.TimeZone);
+                    insertBusinessCmd.Parameters.AddWithValue("@added_by_user_id", userId);
                     insertBusinessCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
 
                     await insertBusinessCmd.ExecuteNonQueryAsync();
                 }
 
-                var insertMembershipSql = """
-                    INSERT INTO business_memberships (
-                        id,
-                        business_id,
-                        user_id,
-                        membership_role,
-                        created_at_utc
-                    )
-                    VALUES (
-                        @id,
-                        @business_id,
-                        @user_id,
-                        @membership_role,
-                        @created_at_utc
-                    );
-                    """;
-
-                await using (var insertMembershipCmd = new NpgsqlCommand(insertMembershipSql, connection))
-                {
-                    insertMembershipCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
-                    insertMembershipCmd.Parameters.AddWithValue("@business_id", businessId);
-                    insertMembershipCmd.Parameters.AddWithValue("@user_id", userId);
-                    insertMembershipCmd.Parameters.AddWithValue("@membership_role", "owner");
-                    insertMembershipCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
-
-                    await insertMembershipCmd.ExecuteNonQueryAsync();
-                }
+                // No membership created — business is unclaimed
+                // The user who added it is tracked via added_by_user_id
+                // To manage it, someone must go through the claim verification flow
 
                 if (request.CategorySlugs != null && request.CategorySlugs.Count > 0)
                 {
@@ -288,7 +267,8 @@ namespace Kudos.Server.Controllers
                     slug = finalSlug,
                     latitude,
                     longitude,
-                    membershipRole = "owner"
+                    claimed = false,
+                    message = "Business added! To manage this listing, use the 'Claim this business' button on the business page."
                 });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
@@ -297,14 +277,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== ERROR =====");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================");
 
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -445,14 +422,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== ERROR =====");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================");
         
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -687,14 +661,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== ERROR =====");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================");
 
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -891,6 +862,49 @@ namespace Kudos.Server.Controllers
                     await categoryCmd.ExecuteNonQueryAsync();
                 }
 
+                // Update hours if provided
+                if (request.Hours != null && request.Hours.Count > 0)
+                {
+                    var deleteHoursSql = "DELETE FROM business_hours WHERE business_id = @business_id;";
+                    await using (var deleteHoursCmd = new Npgsql.NpgsqlCommand(deleteHoursSql, connection))
+                    {
+                        deleteHoursCmd.Parameters.AddWithValue("@business_id", businessId);
+                        await deleteHoursCmd.ExecuteNonQueryAsync();
+                    }
+
+                    foreach (var hour in request.Hours
+                        .Where(h => h.DayOfWeek >= 0 && h.DayOfWeek <= 6)
+                        .GroupBy(h => h.DayOfWeek)
+                        .Select(g => g.First()))
+                    {
+                        var insertHoursSql = """
+                            INSERT INTO business_hours (id, business_id, day_of_week, open_time, close_time, is_closed, created_at_utc)
+                            VALUES (@id, @business_id, @day_of_week, @open_time, @close_time, @is_closed, @created_at_utc);
+                            """;
+
+                        await using var hourCmd = new Npgsql.NpgsqlCommand(insertHoursSql, connection);
+                        hourCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                        hourCmd.Parameters.AddWithValue("@business_id", businessId);
+                        hourCmd.Parameters.AddWithValue("@day_of_week", hour.DayOfWeek);
+
+                        if (hour.IsClosed)
+                        {
+                            hourCmd.Parameters.AddWithValue("@open_time", DBNull.Value);
+                            hourCmd.Parameters.AddWithValue("@close_time", DBNull.Value);
+                        }
+                        else
+                        {
+                            hourCmd.Parameters.AddWithValue("@open_time", TimeOnly.Parse(hour.OpenTime ?? "09:00"));
+                            hourCmd.Parameters.AddWithValue("@close_time", TimeOnly.Parse(hour.CloseTime ?? "17:00"));
+                        }
+
+                        hourCmd.Parameters.AddWithValue("@is_closed", hour.IsClosed);
+                        hourCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+
+                        await hourCmd.ExecuteNonQueryAsync();
+                    }
+                }
+
                 return Ok(new
                 {
                     businessId,
@@ -899,15 +913,7 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("===== ERROR =====");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================");
-
-                return StatusCode(500, new
-                {
-                    message = ex.Message,
-                    stackTrace = ex.StackTrace
-                });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 

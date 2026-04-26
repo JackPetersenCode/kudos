@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { updateBusiness } from "@/lib/business";
+import { getBusinessHours } from "@/lib/publicBusiness";
 import { CATEGORY_TREE } from "@/lib/categoryTree";
 
 type BusinessDetail = {
@@ -44,6 +45,8 @@ export default function EditBusinessPage() {
 
   const [businessId, setBusinessId] = useState<string>("");
 
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -62,6 +65,12 @@ export default function EditBusinessPage() {
     offersTakeout: false,
     outdoorSeating: false,
     timeZone: "America/Chicago",
+    hours: Array.from({ length: 7 }, (_, i) => ({
+      dayOfWeek: i,
+      openTime: "09:00",
+      closeTime: "17:00",
+      isClosed: false,
+    })),
   });
 
   useEffect(() => {
@@ -74,6 +83,35 @@ export default function EditBusinessPage() {
         const data: BusinessDetail = await res.json();
 
         setBusinessId(data.id);
+
+        // Load existing hours
+        let hours = Array.from({ length: 7 }, (_, i) => ({
+          dayOfWeek: i,
+          openTime: "09:00",
+          closeTime: "17:00",
+          isClosed: false,
+        }));
+
+        try {
+          const existingHours = await getBusinessHours(data.id);
+          if (existingHours.length > 0) {
+            hours = hours.map((h) => {
+              const existing = existingHours.find((eh) => eh.dayOfWeek === h.dayOfWeek);
+              if (existing) {
+                return {
+                  dayOfWeek: h.dayOfWeek,
+                  openTime: existing.openTime ?? "09:00",
+                  closeTime: existing.closeTime ?? "17:00",
+                  isClosed: existing.isClosed,
+                };
+              }
+              return h;
+            });
+          }
+        } catch {
+          // no hours yet
+        }
+
         setForm({
           name: data.name ?? "",
           description: data.description ?? "",
@@ -92,6 +130,7 @@ export default function EditBusinessPage() {
           offersTakeout: data.offersTakeout,
           outdoorSeating: data.outdoorSeating,
           timeZone: data.timeZone ?? "America/Chicago",
+          hours,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load business");
@@ -118,7 +157,7 @@ export default function EditBusinessPage() {
     setSaving(true);
 
     try {
-      await updateBusiness(businessId, {
+      await updateBusiness(slug, {
         name: form.name,
         description: form.description || null,
         phone: form.phone || null,
@@ -136,6 +175,7 @@ export default function EditBusinessPage() {
         offersTakeout: form.offersTakeout,
         outdoorSeating: form.outdoorSeating,
         timeZone: form.timeZone,
+        hours: form.hours,
       });
 
       router.push(`/dashboard/business/${slug}`);
@@ -147,7 +187,7 @@ export default function EditBusinessPage() {
   }
 
   if (loading) {
-    return <main style={{ padding: 24 }}>Loading...</main>;
+    return <main style={{ minHeight: "100vh" }} />;
   }
 
   return (
@@ -327,7 +367,55 @@ export default function EditBusinessPage() {
           style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
         />
 
-        <button type="submit" disabled={saving}>
+        <div style={{ marginBottom: 16 }}>
+          <h3>Business Hours</h3>
+          <div style={{ display: "grid", gap: 10 }}>
+            {form.hours.map((hour, idx) => (
+              <div key={hour.dayOfWeek} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <strong style={{ width: 100 }}>{DAY_NAMES[hour.dayOfWeek]}</strong>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={hour.isClosed}
+                    onChange={(e) => {
+                      const updated = [...form.hours];
+                      updated[idx] = { ...updated[idx], isClosed: e.target.checked };
+                      setForm((prev) => ({ ...prev, hours: updated }));
+                    }}
+                  />
+                  Closed
+                </label>
+                {!hour.isClosed && (
+                  <>
+                    <input
+                      type="time"
+                      value={hour.openTime}
+                      onChange={(e) => {
+                        const updated = [...form.hours];
+                        updated[idx] = { ...updated[idx], openTime: e.target.value };
+                        setForm((prev) => ({ ...prev, hours: updated }));
+                      }}
+                      style={{ width: 130 }}
+                    />
+                    <span>to</span>
+                    <input
+                      type="time"
+                      value={hour.closeTime}
+                      onChange={(e) => {
+                        const updated = [...form.hours];
+                        updated[idx] = { ...updated[idx], closeTime: e.target.value };
+                        setForm((prev) => ({ ...prev, hours: updated }));
+                      }}
+                      style={{ width: 130 }}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button type="submit" disabled={saving} className="btn-accent" style={{ padding: "12px 24px" }}>
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>

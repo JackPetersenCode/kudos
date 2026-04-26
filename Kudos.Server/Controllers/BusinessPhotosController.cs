@@ -86,8 +86,7 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
-                return StatusCode(500, new { message = ex.Message, stackTrace = ex.StackTrace });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
@@ -140,8 +139,7 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
-                return StatusCode(500, new { message = ex.Message, stackTrace = ex.StackTrace });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
@@ -231,8 +229,7 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
-                return StatusCode(500, new { message = ex.Message, stackTrace = ex.StackTrace });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
@@ -331,8 +328,182 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
-                return StatusCode(500, new { message = ex.Message, stackTrace = ex.StackTrace });
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        // Community uploads — any logged-in user can add a photo
+        [HttpPost("community/upload-url")]
+        [Authorize]
+        public async Task<IActionResult> CreateCommunityUploadUrl(Guid businessId, [FromBody] CreatePhotoUploadRequest request)
+        {
+            try
+            {
+                var email = GetCurrentEmail();
+                if (string.IsNullOrWhiteSpace(email))
+                    return Unauthorized();
+
+                var extension = Path.GetExtension(request.FileName);
+                var key = $"business/{businessId}/community/{Guid.NewGuid()}{extension}";
+
+                var presignedRequest = new GetPreSignedUrlRequest
+                {
+                    BucketName = _r2.BucketName,
+                    Key = key,
+                    Verb = HttpVerb.PUT,
+                    Expires = DateTime.UtcNow.AddMinutes(10),
+                    ContentType = request.ContentType
+                };
+
+                var uploadUrl = _s3.GetPreSignedURL(presignedRequest);
+
+                return Ok(new
+                {
+                    uploadUrl,
+                    storageKey = key,
+                    publicUrl = $"{_r2.PublicBaseUrl}/{key}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("community/complete")]
+        [Authorize]
+        public async Task<IActionResult> CompleteCommunityUpload(Guid businessId, [FromBody] CompletePhotoUploadRequest request)
+        {
+            try
+            {
+                var email = GetCurrentEmail();
+                if (string.IsNullOrWhiteSpace(email))
+                    return Unauthorized();
+
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                // Check if business has any photos — if not, make this the primary
+                var countSql = "SELECT COUNT(*)::int FROM business_photos WHERE business_id = @business_id;";
+                int photoCount;
+                await using (var countCmd = new NpgsqlCommand(countSql, connection))
+                {
+                    countCmd.Parameters.AddWithValue("@business_id", businessId);
+                    photoCount = (int)(await countCmd.ExecuteScalarAsync() ?? 0);
+                }
+
+                var isPrimary = photoCount == 0;
+
+                // Get user ID
+                var getUserIdSql = "SELECT id FROM users WHERE email = @email;";
+                Guid? userId = null;
+                await using (var userCmd = new NpgsqlCommand(getUserIdSql, connection))
+                {
+                    userCmd.Parameters.AddWithValue("@email", email);
+                    var result = await userCmd.ExecuteScalarAsync();
+                    if (result is Guid uid) userId = uid;
+                }
+
+                var insertSql = """
+                    INSERT INTO business_photos (id, business_id, storage_key, original_url, content_type, size_bytes, is_primary, created_at_utc, uploaded_by_user_id)
+                    VALUES (@id, @business_id, @storage_key, @original_url, @content_type, @size_bytes, @is_primary, @now, @uploaded_by);
+                    """;
+
+                var photoId = Guid.NewGuid();
+                await using var cmd = new NpgsqlCommand(insertSql, connection);
+                cmd.Parameters.AddWithValue("@id", photoId);
+                cmd.Parameters.AddWithValue("@business_id", businessId);
+                cmd.Parameters.AddWithValue("@storage_key", request.StorageKey);
+                cmd.Parameters.AddWithValue("@original_url", request.OriginalUrl);
+                cmd.Parameters.AddWithValue("@content_type", (object?)request.ContentType ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@size_bytes", (object?)request.SizeBytes ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@is_primary", isPrimary);
+                cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                cmd.Parameters.AddWithValue("@uploaded_by", (object?)userId ?? DBNull.Value);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { photoId, businessId, originalUrl = request.OriginalUrl, isPrimary });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("community/{photoId:guid}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteCommunityPhoto(Guid businessId, Guid photoId)
+        {
+            try
+            {
+                var email = GetCurrentEmail();
+                if (string.IsNullOrWhiteSpace(email))
+                    return Unauthorized();
+
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                // Get user ID
+                var getUserIdSql = "SELECT id FROM users WHERE email = @email;";
+                Guid? userId = null;
+                await using (var userCmd = new NpgsqlCommand(getUserIdSql, connection))
+                {
+                    userCmd.Parameters.AddWithValue("@email", email);
+                    var result = await userCmd.ExecuteScalarAsync();
+                    if (result is Guid uid) userId = uid;
+                }
+
+                if (userId == null) return Unauthorized();
+
+                // Verify the photo belongs to this user
+                var checkSql = """
+                    SELECT storage_key FROM business_photos
+                    WHERE id = @photo_id AND business_id = @business_id AND uploaded_by_user_id = @user_id;
+                    """;
+
+                string? storageKey = null;
+                await using (var checkCmd = new NpgsqlCommand(checkSql, connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@photo_id", photoId);
+                    checkCmd.Parameters.AddWithValue("@business_id", businessId);
+                    checkCmd.Parameters.AddWithValue("@user_id", userId.Value);
+                    var result = await checkCmd.ExecuteScalarAsync();
+                    storageKey = result as string;
+                }
+
+                if (storageKey == null)
+                    return NotFound(new { message = "Photo not found or you don't have permission to delete it." });
+
+                // Delete from R2
+                try
+                {
+                    var s3 = HttpContext.RequestServices.GetRequiredService<IAmazonS3>();
+                    var r2Options = _configuration.GetSection("CloudflareR2").Get<CloudflareR2Options>()!;
+                    await s3.DeleteObjectAsync(new Amazon.S3.Model.DeleteObjectRequest
+                    {
+                        BucketName = r2Options.BucketName,
+                        Key = storageKey
+                    });
+                }
+                catch
+                {
+                    // Continue even if R2 delete fails
+                }
+
+                // Delete from DB
+                var deleteSql = "DELETE FROM business_photos WHERE id = @photo_id;";
+                await using var deleteCmd = new NpgsqlCommand(deleteSql, connection);
+                deleteCmd.Parameters.AddWithValue("@photo_id", photoId);
+                await deleteCmd.ExecuteNonQueryAsync();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 

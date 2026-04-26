@@ -6,6 +6,9 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { logout } from "@/lib/auth";
 import { getBusinessPhotos, uploadBusinessPhoto, deleteBusinessPhoto, BusinessPhoto } from "@/lib/photos";
+import StaffManager from "@/components/StaffManager";
+import SeasonalTagManager from "@/components/SeasonalTagManager";
+import BusinessQRCode from "@/components/BusinessQRCode";
 
 type BusinessDetail = {
   id: string;
@@ -125,7 +128,7 @@ export default function BusinessDashboardPage() {
   }
 
   if (loading) {
-    return <main style={{ padding: 24 }}>Loading...</main>;
+    return <main style={{ minHeight: "100vh" }} />;
   }
 
   if (error) {
@@ -182,6 +185,29 @@ export default function BusinessDashboardPage() {
       </div>
 
       <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid #ccc" }}>
+        <div
+          style={{
+            marginBottom: 16,
+            padding: 16,
+            border: "1px solid #ddd",
+            borderRadius: 12,
+            background: "#fafafa",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>
+            Add at least 3 photos to get started
+          </div>
+        
+          <div style={{ color: "#555", marginBottom: 10 }}>
+            Businesses look more complete and trustworthy when they have a variety of photos.
+          </div>
+        
+          <div style={{ display: "grid", gap: 6, color: "#444" }}>
+            <div>• Exterior photo so people can recognize the business</div>
+            <div>• Interior photo to show the atmosphere or space</div>
+            <div>• Product or service photo to show what you offer</div>
+          </div>
+        </div>
         <h2>Upload Photos</h2>
 
         <input
@@ -246,7 +272,7 @@ export default function BusinessDashboardPage() {
                 <img
                   src={photo.originalUrl}
                   alt="Business photo"
-                  style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 6 }}
+                  style={{ width: "100%", height: 180, objectFit: "contain", background: "#f5f5f5", borderRadius: 6 }}
                 />
                 <div style={{ marginTop: 8 }}>
                   {photo.isPrimary ? <strong>Primary Photo</strong> : "Secondary Photo"}
@@ -266,6 +292,17 @@ export default function BusinessDashboardPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <StaffManager businessId={business.id} />
+
+      <SeasonalTagManager businessId={business.id} />
+
+      <BusinessQRCode slug={business.slug} businessName={business.name} />
+
+      <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid #ccc" }}>
+        <h2>Analytics</h2>
+        <Link href={`/dashboard/business/${slug}/analytics`}>View Business Analytics</Link>
       </div>
 
       <div style={{ marginTop: 24 }}>

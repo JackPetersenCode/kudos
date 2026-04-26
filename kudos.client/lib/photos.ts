@@ -71,6 +71,44 @@ export async function uploadBusinessPhoto(
   return completeRes.json();
 }
 
+export async function uploadCommunityPhoto(
+  businessId: string,
+  file: File
+): Promise<CompleteUploadResponse> {
+  const uploadUrlRes = await apiFetch(`/business/${businessId}/photos/community/upload-url`, {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+    }),
+  });
+
+  const uploadInfo: UploadUrlResponse = await uploadUrlRes.json();
+
+  const uploadRes = await fetch(uploadInfo.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Failed to upload file to storage");
+  }
+
+  const completeRes = await apiFetch(`/business/${businessId}/photos/community/complete`, {
+    method: "POST",
+    body: JSON.stringify({
+      storageKey: uploadInfo.storageKey,
+      originalUrl: uploadInfo.publicUrl,
+      contentType: file.type,
+      sizeBytes: file.size,
+      isPrimary: false,
+    }),
+  });
+
+  return completeRes.json();
+}
+
 export async function deleteBusinessPhoto(
   businessId: string,
   photoId: string
@@ -82,4 +120,13 @@ export async function deleteBusinessPhoto(
   if (!res.ok) {
     throw new Error(await res.text());
   }
+}
+
+export async function deleteCommunityPhoto(
+  businessId: string,
+  photoId: string
+): Promise<void> {
+  await apiFetch(`/business/${businessId}/photos/community/${photoId}`, {
+    method: "DELETE",
+  });
 }

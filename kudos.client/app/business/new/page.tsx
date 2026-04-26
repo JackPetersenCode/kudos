@@ -137,7 +137,7 @@ export default function NewBusinessPage() {
         })),
       });
 
-      router.push(`/dashboard/business/${created.slug}`);
+      router.push(`/business/${created.slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create business");
     } finally {
@@ -146,10 +146,14 @@ export default function NewBusinessPage() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 800 }}>
-      <h1>Create Business</h1>
+    <main className="page-container-medium">
+      <h1>Add a Business</h1>
+      <p style={{ color: "var(--color-text-secondary)", marginTop: 0, marginBottom: 24 }}>
+        Know a great business that&apos;s not on Reputater yet? Add it so others can discover it too.
+        You don&apos;t need to be the owner — anyone can contribute a listing.
+      </p>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
         <input
           placeholder="Name *"
           value={form.name}
@@ -362,16 +366,19 @@ export default function NewBusinessPage() {
           style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create Business"}
+        <div className="section-card" style={{ background: "var(--color-accent-light)", border: "1px solid var(--color-accent)", padding: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--color-text-secondary)" }}>
+            By adding this business, you&apos;re helping the community discover it. You won&apos;t have management access —
+            if you&apos;re the owner, you can claim the listing after it&apos;s created using the &quot;Claim this business&quot; button.
+          </p>
+        </div>
+
+        <button type="submit" disabled={loading} className="btn-accent" style={{ padding: "12px 24px" }}>
+          {loading ? "Adding..." : "Add Business"}
         </button>
       </form>
 
-      {error && (
-        <pre style={{ color: "red", marginTop: 16 }}>
-          {error}
-        </pre>
-      )}
+      {error && <div className="error-message" style={{ marginTop: 16 }}>{error}</div>}
     </main>
   );
 }

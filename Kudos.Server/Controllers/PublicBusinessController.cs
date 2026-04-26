@@ -1,10 +1,12 @@
+using Amazon.S3;
+using Amazon.S3.Model;
 using Kudos.Server.Data;
+using Kudos.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using System.Security.Claims;
-using OpenAI.Chat;
-using Kudos.Server.Services;
 
 namespace Kudos.Server.Controllers
 {
@@ -14,11 +16,23 @@ namespace Kudos.Server.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly OpenAIService _openAi;
+        private readonly IAmazonS3 _s3;
+        private readonly CloudflareR2Options _r2;
 
-        public PublicBusinessController(IConfiguration configuration, OpenAIService openAi)
+        private readonly ILogger<PublicBusinessController> _logger;
+
+        public PublicBusinessController(
+            IConfiguration configuration,
+            OpenAIService openAi,
+            IAmazonS3 s3,
+            IOptions<CloudflareR2Options> r2Options,
+            ILogger<PublicBusinessController> logger)
         {
             _configuration = configuration;
             _openAi = openAi;
+            _s3 = s3;
+            _r2 = r2Options.Value;
+            _logger = logger;
         }
 
         [HttpGet("{slug}")]
@@ -128,11 +142,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -184,11 +197,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -212,7 +224,8 @@ namespace Kudos.Server.Controllers
                         id,
                         original_url,
                         is_primary,
-                        created_at_utc
+                        created_at_utc,
+                        uploaded_by_user_id
                     FROM business_photos
                     WHERE business_id = @business_id
                     ORDER BY is_primary DESC, created_at_utc DESC;
@@ -232,7 +245,8 @@ namespace Kudos.Server.Controllers
                         id = reader.GetGuid(0),
                         originalUrl = reader.GetString(1),
                         isPrimary = reader.GetBoolean(2),
-                        createdAtUtc = reader.GetDateTime(3)
+                        createdAtUtc = reader.GetDateTime(3),
+                        uploadedByUserId = reader.IsDBNull(4) ? null : reader.GetGuid(4).ToString()
                     });
                 }
 
@@ -240,11 +254,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -258,16 +271,16 @@ namespace Kudos.Server.Controllers
                     User.FindFirst(ClaimTypes.Email)?.Value ??
                     User.FindFirst(ClaimTypes.Name)?.Value ??
                     User.Identity?.Name;
-        
+
                 var connectionString = _configuration.GetConnectionString("WebApiDatabase");
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
                     throw new InvalidOperationException("Missing connection string: WebApiDatabase");
                 }
-        
+
                 await using var connection = new NpgsqlConnection(connectionString);
                 await connection.OpenAsync();
-        
+
                 var summarySql = """
                     SELECT
                         COUNT(*)::int AS review_count,
@@ -275,21 +288,21 @@ namespace Kudos.Server.Controllers
                     FROM reviews
                     WHERE business_id = @business_id;
                     """;
-        
+
                 int reviewCount;
                 decimal averageRating;
-        
+
                 await using (var summaryCmd = new NpgsqlCommand(summarySql, connection))
                 {
                     summaryCmd.Parameters.AddWithValue("@business_id", businessId);
-        
+
                     await using var summaryReader = await summaryCmd.ExecuteReaderAsync();
                     await summaryReader.ReadAsync();
-        
+
                     reviewCount = summaryReader.GetInt32(0);
                     averageRating = summaryReader.GetDecimal(1);
                 }
-        
+
                 var tagCountsSql = """
                     SELECT
                         rpt.tag_name,
@@ -300,7 +313,7 @@ namespace Kudos.Server.Controllers
                     WHERE r.business_id = @business_id
                     GROUP BY rpt.tag_name;
                     """;
-        
+
                 var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["service"] = 0,
@@ -309,13 +322,13 @@ namespace Kudos.Server.Controllers
                     ["value"] = 0,
                     ["experience"] = 0
                 };
-        
+
                 await using (var tagCountsCmd = new NpgsqlCommand(tagCountsSql, connection))
                 {
                     tagCountsCmd.Parameters.AddWithValue("@business_id", businessId);
-        
+
                     await using var tagCountsReader = await tagCountsCmd.ExecuteReaderAsync();
-        
+
                     while (await tagCountsReader.ReadAsync())
                     {
                         var tagName = tagCountsReader.GetString(0);
@@ -323,7 +336,7 @@ namespace Kudos.Server.Controllers
                         tagCounts[tagName] = count;
                     }
                 }
-        
+
                 var reviewsSql = """
                     SELECT
                         r.id,
@@ -331,29 +344,34 @@ namespace Kudos.Server.Controllers
                         r.title,
                         r.body,
                         r.created_at_utc,
-                        u.email
+                        u.email,
+                        u.display_name,
+                        u.id AS user_id,
+                        (SELECT COUNT(*)::int FROM reviews r2 WHERE r2.user_id = u.id) AS user_review_count
                     FROM reviews r
                     INNER JOIN users u
                         ON u.id = r.user_id
                     WHERE r.business_id = @business_id
                     ORDER BY r.created_at_utc DESC;
                     """;
-        
+
                 await using var cmd = new NpgsqlCommand(reviewsSql, connection);
                 cmd.Parameters.AddWithValue("@business_id", businessId);
-        
+
                 await using var reader = await cmd.ExecuteReaderAsync();
-        
+
                 var reviews = new List<object>();
                 var reviewIds = new List<Guid>();
-        
+
                 while (await reader.ReadAsync())
                 {
                     var reviewId = reader.GetGuid(0);
                     reviewIds.Add(reviewId);
-        
+
                     var userEmail = reader.GetString(5);
-        
+                    var displayName = reader.IsDBNull(6) ? null : reader.GetString(6);
+                    var reviewUserId = reader.GetGuid(7);
+
                     reviews.Add(new
                     {
                         id = reviewId,
@@ -362,16 +380,20 @@ namespace Kudos.Server.Controllers
                         body = reader.IsDBNull(3) ? null : reader.GetString(3),
                         createdAtUtc = reader.GetDateTime(4),
                         userEmail,
+                        displayName = displayName ?? userEmail.Split('@')[0],
+                        userId = reviewUserId,
+                        userReviewCount = reader.GetInt32(8),
                         positiveTags = new List<string>(),
+                        photos = new List<object>(),
                         isOwnReview = !string.IsNullOrWhiteSpace(currentEmail) &&
                                       string.Equals(currentEmail, userEmail, StringComparison.OrdinalIgnoreCase)
                     });
                 }
-        
+
                 await reader.CloseAsync();
-        
+
                 var tagsByReviewId = new Dictionary<Guid, List<string>>();
-        
+
                 if (reviewIds.Count > 0)
                 {
                     var reviewTagsSql = """
@@ -379,31 +401,186 @@ namespace Kudos.Server.Controllers
                         FROM review_positive_tags
                         WHERE review_id = ANY(@review_ids);
                         """;
-        
+
                     await using var reviewTagsCmd = new NpgsqlCommand(reviewTagsSql, connection);
                     reviewTagsCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
-        
+
                     await using var reviewTagsReader = await reviewTagsCmd.ExecuteReaderAsync();
-        
+
                     while (await reviewTagsReader.ReadAsync())
                     {
                         var reviewId = reviewTagsReader.GetGuid(0);
                         var tagName = reviewTagsReader.GetString(1);
-        
+
                         if (!tagsByReviewId.ContainsKey(reviewId))
                         {
                             tagsByReviewId[reviewId] = new List<string>();
                         }
-        
+
                         tagsByReviewId[reviewId].Add(tagName);
                     }
                 }
-        
+
+                var photosByReviewId = new Dictionary<Guid, List<object>>();
+
+                if (reviewIds.Count > 0)
+                {
+                    var reviewPhotosSql = """
+                        SELECT
+                            review_id,
+                            id,
+                            original_url,
+                            created_at_utc
+                        FROM review_photos
+                        WHERE review_id = ANY(@review_ids)
+                        ORDER BY created_at_utc ASC;
+                        """;
+
+                    await using var reviewPhotosCmd = new NpgsqlCommand(reviewPhotosSql, connection);
+                    reviewPhotosCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+
+                    await using var reviewPhotosReader = await reviewPhotosCmd.ExecuteReaderAsync();
+
+                    while (await reviewPhotosReader.ReadAsync())
+                    {
+                        var reviewId = reviewPhotosReader.GetGuid(0);
+
+                        if (!photosByReviewId.ContainsKey(reviewId))
+                        {
+                            photosByReviewId[reviewId] = new List<object>();
+                        }
+
+                        photosByReviewId[reviewId].Add(new
+                        {
+                            id = reviewPhotosReader.GetGuid(1),
+                            originalUrl = reviewPhotosReader.GetString(2),
+                            createdAtUtc = reviewPhotosReader.GetDateTime(3)
+                        });
+                    }
+                }
+
+                // Fetch helpful vote counts
+                var helpfulByReviewId = new Dictionary<Guid, int>();
+                var userHelpfulVotes = new HashSet<Guid>();
+
+                if (reviewIds.Count > 0)
+                {
+                    var helpfulSql = """
+                        SELECT review_id, COUNT(*)::int AS count
+                        FROM review_helpful_votes
+                        WHERE review_id = ANY(@review_ids)
+                        GROUP BY review_id;
+                        """;
+
+                    await using var helpfulCmd = new NpgsqlCommand(helpfulSql, connection);
+                    helpfulCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+
+                    await using var helpfulReader = await helpfulCmd.ExecuteReaderAsync();
+                    while (await helpfulReader.ReadAsync())
+                    {
+                        helpfulByReviewId[helpfulReader.GetGuid(0)] = helpfulReader.GetInt32(1);
+                    }
+                    await helpfulReader.CloseAsync();
+
+                    // Check which reviews current user has voted helpful
+                    if (!string.IsNullOrWhiteSpace(currentEmail))
+                    {
+                        var userHelpfulSql = """
+                            SELECT rhv.review_id
+                            FROM review_helpful_votes rhv
+                            INNER JOIN users u ON u.id = rhv.user_id
+                            WHERE rhv.review_id = ANY(@review_ids)
+                              AND u.email = @email;
+                            """;
+
+                        await using var userHelpfulCmd = new NpgsqlCommand(userHelpfulSql, connection);
+                        userHelpfulCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+                        userHelpfulCmd.Parameters.AddWithValue("@email", currentEmail);
+
+                        await using var userHelpfulReader = await userHelpfulCmd.ExecuteReaderAsync();
+                        while (await userHelpfulReader.ReadAsync())
+                        {
+                            userHelpfulVotes.Add(userHelpfulReader.GetGuid(0));
+                        }
+                    }
+                }
+
+                // Fetch business responses
+                var responsesByReviewId = new Dictionary<Guid, object>();
+
+                if (reviewIds.Count > 0)
+                {
+                    var responsesSql = """
+                        SELECT review_id, body, created_at_utc
+                        FROM review_responses
+                        WHERE review_id = ANY(@review_ids);
+                        """;
+
+                    await using var responsesCmd = new NpgsqlCommand(responsesSql, connection);
+                    responsesCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+
+                    await using var responsesReader = await responsesCmd.ExecuteReaderAsync();
+                    while (await responsesReader.ReadAsync())
+                    {
+                        responsesByReviewId[responsesReader.GetGuid(0)] = new
+                        {
+                            body = responsesReader.GetString(1),
+                            createdAtUtc = responsesReader.GetDateTime(2)
+                        };
+                    }
+                }
+
+                // Fetch staff recognitions per review
+                var staffRecognitionsByReviewId = new Dictionary<Guid, List<object>>();
+
+                if (reviewIds.Count > 0)
+                {
+                    var staffKudosSql = """
+                        SELECT
+                            sk.review_id,
+                            sk.staff_member_id,
+                            sm.first_name,
+                            sm.last_name,
+                            sm.photo_url,
+                            COALESCE(
+                                (SELECT ARRAY_AGG(skt.tag_name) FROM staff_kudos_tags skt WHERE skt.staff_kudos_id = sk.id),
+                                ARRAY[]::text[]
+                            ) AS tags
+                        FROM staff_kudos sk
+                        INNER JOIN staff_members sm ON sm.id = sk.staff_member_id
+                        WHERE sk.review_id = ANY(@review_ids)
+                        ORDER BY sk.created_at_utc;
+                        """;
+
+                    await using var skCmd = new NpgsqlCommand(staffKudosSql, connection);
+                    skCmd.Parameters.AddWithValue("@review_ids", reviewIds.ToArray());
+
+                    await using var skReader = await skCmd.ExecuteReaderAsync();
+                    while (await skReader.ReadAsync())
+                    {
+                        var revId = skReader.GetGuid(0);
+                        if (!staffRecognitionsByReviewId.ContainsKey(revId))
+                            staffRecognitionsByReviewId[revId] = new List<object>();
+
+                        staffRecognitionsByReviewId[revId].Add(new
+                        {
+                            staffMemberId = skReader.GetGuid(1),
+                            firstName = skReader.GetString(2),
+                            lastName = skReader.GetString(3),
+                            photoUrl = skReader.IsDBNull(4) ? null : skReader.GetString(4),
+                            tags = skReader.IsDBNull(5) ? Array.Empty<string>() : skReader.GetFieldValue<string[]>(5)
+                        });
+                    }
+                }
+
                 var finalReviews = reviews.Select(r =>
                 {
                     var reviewType = r.GetType();
                     var reviewId = (Guid)reviewType.GetProperty("id")!.GetValue(r)!;
-        
+
+                    var isOwn = (bool)reviewType.GetProperty("isOwnReview")!.GetValue(r)!;
+                    var emailValue = (string)reviewType.GetProperty("userEmail")!.GetValue(r)!;
+
                     return new
                     {
                         id = reviewId,
@@ -411,14 +588,24 @@ namespace Kudos.Server.Controllers
                         title = (string?)reviewType.GetProperty("title")!.GetValue(r),
                         body = (string?)reviewType.GetProperty("body")!.GetValue(r),
                         createdAtUtc = (DateTime)reviewType.GetProperty("createdAtUtc")!.GetValue(r)!,
-                        userEmail = (string)reviewType.GetProperty("userEmail")!.GetValue(r)!,
+                        userEmail = isOwn ? emailValue : null,
+                        displayName = (string)reviewType.GetProperty("displayName")!.GetValue(r)!,
+                        userId = (Guid)reviewType.GetProperty("userId")!.GetValue(r)!,
                         positiveTags = tagsByReviewId.TryGetValue(reviewId, out var tags)
                             ? tags
                             : new List<string>(),
-                        isOwnReview = (bool)reviewType.GetProperty("isOwnReview")!.GetValue(r)!
+                        photos = photosByReviewId.TryGetValue(reviewId, out var photos)
+                            ? photos
+                            : new List<object>(),
+                        userReviewCount = (int)reviewType.GetProperty("userReviewCount")!.GetValue(r)!,
+                        isOwnReview = isOwn,
+                        helpfulCount = helpfulByReviewId.TryGetValue(reviewId, out var hc) ? hc : 0,
+                        isMarkedHelpful = userHelpfulVotes.Contains(reviewId),
+                        businessResponse = responsesByReviewId.TryGetValue(reviewId, out var resp) ? resp : null,
+                        staffRecognitions = staffRecognitionsByReviewId.TryGetValue(reviewId, out var sr) ? sr : new List<object>()
                     };
                 });
-        
+
                 return Ok(new
                 {
                     reviewCount,
@@ -436,14 +623,14 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
+
         [HttpPost("{businessId:guid}/reviews")]
         [Authorize]
         public async Task<IActionResult> CreateReview(Guid businessId, [FromBody] CreateReviewRequest request)
@@ -462,12 +649,14 @@ namespace Kudos.Server.Controllers
 
                 if (string.IsNullOrWhiteSpace(email))
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
                     return Unauthorized("Email claim not found in token.");
                 }
 
                 var connectionString = _configuration.GetConnectionString("WebApiDatabase");
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
                     throw new InvalidOperationException("Missing connection string: WebApiDatabase");
                 }
 
@@ -490,6 +679,7 @@ namespace Kudos.Server.Controllers
                     var result = await getUserCmd.ExecuteScalarAsync();
                     if (result == null)
                     {
+                        await CleanupUploadedReviewPhotosAsync(request.Photos);
                         return NotFound("User not found.");
                     }
 
@@ -508,6 +698,8 @@ namespace Kudos.Server.Controllers
                     }
                     catch (SentimentServiceUnavailableException)
                     {
+                        await CleanupUploadedReviewPhotosAsync(request.Photos);
+
                         return StatusCode(503, new
                         {
                             success = false,
@@ -519,6 +711,8 @@ namespace Kudos.Server.Controllers
 
                 if (string.Equals(sentiment, "negative", StringComparison.OrdinalIgnoreCase))
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
+
                     return BadRequest(new
                     {
                         success = false,
@@ -605,6 +799,117 @@ namespace Kudos.Server.Controllers
                     await tagCmd.ExecuteNonQueryAsync();
                 }
 
+                var photos = request.Photos ?? new List<ReviewPhotoInput>();
+
+                if (photos.Count > 5)
+                {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
+                    return BadRequest("A review can have at most 5 photos.");
+                }
+
+                foreach (var photo in photos)
+                {
+                    var insertPhotoSql = """
+                        INSERT INTO review_photos (
+                            id,
+                            review_id,
+                            storage_key,
+                            original_url,
+                            content_type,
+                            size_bytes,
+                            created_at_utc
+                        )
+                        VALUES (
+                            @id,
+                            @review_id,
+                            @storage_key,
+                            @original_url,
+                            @content_type,
+                            @size_bytes,
+                            @created_at_utc
+                        );
+                        """;
+
+                    await using var photoCmd = new NpgsqlCommand(insertPhotoSql, connection);
+                    photoCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                    photoCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    photoCmd.Parameters.AddWithValue("@storage_key", photo.StorageKey);
+                    photoCmd.Parameters.AddWithValue("@original_url", photo.OriginalUrl);
+                    photoCmd.Parameters.AddWithValue("@content_type", (object?)photo.ContentType ?? DBNull.Value);
+                    photoCmd.Parameters.AddWithValue("@size_bytes", (object?)photo.SizeBytes ?? DBNull.Value);
+                    photoCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+
+                    await photoCmd.ExecuteNonQueryAsync();
+                }
+
+                // Save staff recognitions linked to this review
+                if (request.StaffRecognitions != null)
+                {
+                    foreach (var recognition in request.StaffRecognitions)
+                    {
+                        var staffKudosId = Guid.NewGuid();
+                        var insertKudosSql = """
+                            INSERT INTO staff_kudos (id, staff_member_id, business_id, user_id, review_id, created_at_utc)
+                            VALUES (@id, @staff_id, @business_id, @user_id, @review_id, @now);
+                            """;
+                        await using (var skCmd = new NpgsqlCommand(insertKudosSql, connection))
+                        {
+                            skCmd.Parameters.AddWithValue("@id", staffKudosId);
+                            skCmd.Parameters.AddWithValue("@staff_id", recognition.StaffMemberId);
+                            skCmd.Parameters.AddWithValue("@business_id", businessId);
+                            skCmd.Parameters.AddWithValue("@user_id", userId);
+                            skCmd.Parameters.AddWithValue("@review_id", reviewId);
+                            skCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                            await skCmd.ExecuteNonQueryAsync();
+                        }
+
+                        foreach (var tag in recognition.Tags ?? new List<string>())
+                        {
+                            var insertSkTagSql = """
+                                INSERT INTO staff_kudos_tags (id, staff_kudos_id, tag_name, created_at_utc)
+                                VALUES (@id, @kudos_id, @tag, @now);
+                                """;
+                            await using var skTagCmd = new NpgsqlCommand(insertSkTagSql, connection);
+                            skTagCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                            skTagCmd.Parameters.AddWithValue("@kudos_id", staffKudosId);
+                            skTagCmd.Parameters.AddWithValue("@tag", tag);
+                            skTagCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                            await skTagCmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+
+                // Queue notification for business owners
+                try
+                {
+                    var notifySql = """
+                        INSERT INTO notifications (id, user_id, notification_type, subject, body, created_at_utc)
+                        SELECT @notif_id, bm.user_id, 'new_review',
+                               'New review on your business',
+                               'A new ' || @rating_text || '-star review was posted.',
+                               @created_at
+                        FROM business_memberships bm
+                        WHERE bm.business_id = @business_id
+                          AND bm.user_id != @reviewer_user_id
+                          AND EXISTS (
+                              SELECT 1 FROM notification_preferences np
+                              WHERE np.user_id = bm.user_id AND np.email_on_new_review = TRUE
+                          );
+                        """;
+
+                    await using var notifyCmd = new NpgsqlCommand(notifySql, connection);
+                    notifyCmd.Parameters.AddWithValue("@notif_id", Guid.NewGuid());
+                    notifyCmd.Parameters.AddWithValue("@business_id", businessId);
+                    notifyCmd.Parameters.AddWithValue("@reviewer_user_id", userId);
+                    notifyCmd.Parameters.AddWithValue("@rating_text", request.Rating.ToString());
+                    notifyCmd.Parameters.AddWithValue("@created_at", DateTime.UtcNow);
+                    await notifyCmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                    // Don't fail the review if notification fails
+                }
+
                 return Ok(new
                 {
                     businessId,
@@ -612,20 +917,23 @@ namespace Kudos.Server.Controllers
                     rating = request.Rating,
                     title = request.Title,
                     body = request.Body,
-                    positiveTags = normalizedTags
+                    positiveTags = normalizedTags,
+                    photoCount = photos.Count
                 });
             }
             catch (PostgresException ex) when (ex.SqlState == "23505")
             {
+                await CleanupUploadedReviewPhotosAsync(request.Photos);
                 return BadRequest("You have already reviewed this business.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                await CleanupUploadedReviewPhotosAsync(request.Photos);
+
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -638,50 +946,54 @@ namespace Kudos.Server.Controllers
             {
                 if (request.Rating < 1 || request.Rating > 5)
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
                     return BadRequest("Rating must be between 1 and 5.");
                 }
-
+        
                 var email =
                     User.FindFirst(ClaimTypes.Email)?.Value ??
                     User.FindFirst(ClaimTypes.Name)?.Value ??
                     User.Identity?.Name;
-
+        
                 if (string.IsNullOrWhiteSpace(email))
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
                     return Unauthorized("Email claim not found in token.");
                 }
-
+        
                 var connectionString = _configuration.GetConnectionString("WebApiDatabase");
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
                     throw new InvalidOperationException("Missing connection string: WebApiDatabase");
                 }
-
+        
                 await using var connection = new NpgsqlConnection(connectionString);
                 await connection.OpenAsync();
-
+        
                 Guid userId;
-
+        
                 var getUserSql = """
                     SELECT id
                     FROM users
                     WHERE email = @email
                     LIMIT 1;
                     """;
-
+        
                 await using (var getUserCmd = new NpgsqlCommand(getUserSql, connection))
                 {
                     getUserCmd.Parameters.AddWithValue("@email", email);
-
+        
                     var result = await getUserCmd.ExecuteScalarAsync();
                     if (result == null)
                     {
+                        await CleanupUploadedReviewPhotosAsync(request.Photos);
                         return NotFound("User not found.");
                     }
-
+        
                     userId = (Guid)result;
                 }
-
+        
                 var sql = """
                     UPDATE reviews
                     SET
@@ -692,20 +1004,236 @@ namespace Kudos.Server.Controllers
                       AND business_id = @business_id
                       AND user_id = @user_id;
                     """;
-
-                await using var cmd = new NpgsqlCommand(sql, connection);
-                cmd.Parameters.AddWithValue("@rating", (short)request.Rating);
-                cmd.Parameters.AddWithValue("@title", (object?)request.Title ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@body", (object?)request.Body ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@review_id", reviewId);
-                cmd.Parameters.AddWithValue("@business_id", businessId);
-                cmd.Parameters.AddWithValue("@user_id", userId);
-
-                var rows = await cmd.ExecuteNonQueryAsync();
-
-                if (rows == 0)
+        
+                await using (var cmd = new NpgsqlCommand(sql, connection))
                 {
-                    return NotFound("Review not found or you do not own it.");
+                    cmd.Parameters.AddWithValue("@rating", (short)request.Rating);
+                    cmd.Parameters.AddWithValue("@title", (object?)request.Title ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@body", (object?)request.Body ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@review_id", reviewId);
+                    cmd.Parameters.AddWithValue("@business_id", businessId);
+                    cmd.Parameters.AddWithValue("@user_id", userId);
+        
+                    var rows = await cmd.ExecuteNonQueryAsync();
+        
+                    if (rows == 0)
+                    {
+                        await CleanupUploadedReviewPhotosAsync(request.Photos);
+                        return NotFound("Review not found or you do not own it.");
+                    }
+                }
+        
+                var allowedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "service",
+                    "quality",
+                    "cleanliness",
+                    "value",
+                    "experience"
+                };
+        
+                var normalizedTags = (request.PositiveTags ?? new List<string>())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToLowerInvariant())
+                    .Where(x => allowedTags.Contains(x))
+                    .Distinct()
+                    .ToList();
+        
+                var deleteTagsSql = """
+                    DELETE FROM review_positive_tags
+                    WHERE review_id = @review_id;
+                    """;
+        
+                await using (var deleteTagsCmd = new NpgsqlCommand(deleteTagsSql, connection))
+                {
+                    deleteTagsCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    await deleteTagsCmd.ExecuteNonQueryAsync();
+                }
+        
+                foreach (var tag in normalizedTags)
+                {
+                    var insertTagSql = """
+                        INSERT INTO review_positive_tags (
+                            id,
+                            review_id,
+                            tag_name,
+                            created_at_utc
+                        )
+                        VALUES (
+                            @id,
+                            @review_id,
+                            @tag_name,
+                            @created_at_utc
+                        );
+                        """;
+        
+                    await using var tagCmd = new NpgsqlCommand(insertTagSql, connection);
+                    tagCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                    tagCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    tagCmd.Parameters.AddWithValue("@tag_name", tag);
+                    tagCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+        
+                    await tagCmd.ExecuteNonQueryAsync();
+                }
+        
+                var deletePhotoIds = request.DeletePhotoIds ?? new List<Guid>();
+        
+                if (deletePhotoIds.Count > 0)
+                {
+                    var getPhotoKeysSql = """
+                        SELECT id, storage_key
+                        FROM review_photos
+                        WHERE review_id = @review_id
+                          AND id = ANY(@photo_ids);
+                        """;
+        
+                    var photosToDelete = new List<(Guid Id, string StorageKey)>();
+        
+                    await using (var getKeysCmd = new NpgsqlCommand(getPhotoKeysSql, connection))
+                    {
+                        getKeysCmd.Parameters.AddWithValue("@review_id", reviewId);
+                        getKeysCmd.Parameters.AddWithValue("@photo_ids", deletePhotoIds.ToArray());
+        
+                        await using var keysReader = await getKeysCmd.ExecuteReaderAsync();
+        
+                        while (await keysReader.ReadAsync())
+                        {
+                            photosToDelete.Add((
+                                keysReader.GetGuid(0),
+                                keysReader.GetString(1)
+                            ));
+                        }
+                    }
+        
+                    var deleteDbPhotosSql = """
+                        DELETE FROM review_photos
+                        WHERE review_id = @review_id
+                          AND id = ANY(@photo_ids);
+                        """;
+        
+                    await using (var deleteDbCmd = new NpgsqlCommand(deleteDbPhotosSql, connection))
+                    {
+                        deleteDbCmd.Parameters.AddWithValue("@review_id", reviewId);
+                        deleteDbCmd.Parameters.AddWithValue("@photo_ids", deletePhotoIds.ToArray());
+                        await deleteDbCmd.ExecuteNonQueryAsync();
+                    }
+        
+                    foreach (var photo in photosToDelete)
+                    {
+                        try
+                        {
+                            await _s3.DeleteObjectAsync(new DeleteObjectRequest
+                            {
+                                BucketName = _r2.BucketName,
+                                Key = photo.StorageKey
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to delete edited review photo from storage");
+                        }
+                    }
+                }
+        
+                var newPhotos = request.Photos ?? new List<ReviewPhotoInput>();
+        
+                if (newPhotos.Count > 5)
+                {
+                    await CleanupUploadedReviewPhotosAsync(request.Photos);
+                    return BadRequest("You can upload at most 5 new photos at a time.");
+                }
+        
+                foreach (var photo in newPhotos)
+                {
+                    var insertPhotoSql = """
+                        INSERT INTO review_photos (
+                            id,
+                            review_id,
+                            storage_key,
+                            original_url,
+                            content_type,
+                            size_bytes,
+                            created_at_utc
+                        )
+                        VALUES (
+                            @id,
+                            @review_id,
+                            @storage_key,
+                            @original_url,
+                            @content_type,
+                            @size_bytes,
+                            @created_at_utc
+                        );
+                        """;
+        
+                    await using var photoCmd = new NpgsqlCommand(insertPhotoSql, connection);
+                    photoCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                    photoCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    photoCmd.Parameters.AddWithValue("@storage_key", photo.StorageKey);
+                    photoCmd.Parameters.AddWithValue("@original_url", photo.OriginalUrl);
+                    photoCmd.Parameters.AddWithValue("@content_type", (object?)photo.ContentType ?? DBNull.Value);
+                    photoCmd.Parameters.AddWithValue("@size_bytes", (object?)photo.SizeBytes ?? DBNull.Value);
+                    photoCmd.Parameters.AddWithValue("@created_at_utc", DateTime.UtcNow);
+        
+                    await photoCmd.ExecuteNonQueryAsync();
+                }
+        
+                // Update staff recognitions: delete old ones for this review, insert new
+                if (request.StaffRecognitions != null)
+                {
+                    // Delete existing staff kudos tags for this review's kudos
+                    var deleteSkTagsSql = """
+                        DELETE FROM staff_kudos_tags
+                        WHERE staff_kudos_id IN (SELECT id FROM staff_kudos WHERE review_id = @review_id);
+                        """;
+                    await using (var dskCmd = new NpgsqlCommand(deleteSkTagsSql, connection))
+                    {
+                        dskCmd.Parameters.AddWithValue("@review_id", reviewId);
+                        await dskCmd.ExecuteNonQueryAsync();
+                    }
+
+                    // Delete existing staff kudos for this review
+                    var deleteSkSql = "DELETE FROM staff_kudos WHERE review_id = @review_id AND user_id = @user_id;";
+                    await using (var dskCmd2 = new NpgsqlCommand(deleteSkSql, connection))
+                    {
+                        dskCmd2.Parameters.AddWithValue("@review_id", reviewId);
+                        dskCmd2.Parameters.AddWithValue("@user_id", userId);
+                        await dskCmd2.ExecuteNonQueryAsync();
+                    }
+
+                    // Insert new ones
+                    foreach (var recognition in request.StaffRecognitions)
+                    {
+                        var staffKudosId = Guid.NewGuid();
+                        var insertKudosSql = """
+                            INSERT INTO staff_kudos (id, staff_member_id, business_id, user_id, review_id, created_at_utc)
+                            VALUES (@id, @staff_id, @business_id, @user_id, @review_id, @now);
+                            """;
+                        await using (var skCmd = new NpgsqlCommand(insertKudosSql, connection))
+                        {
+                            skCmd.Parameters.AddWithValue("@id", staffKudosId);
+                            skCmd.Parameters.AddWithValue("@staff_id", recognition.StaffMemberId);
+                            skCmd.Parameters.AddWithValue("@business_id", businessId);
+                            skCmd.Parameters.AddWithValue("@user_id", userId);
+                            skCmd.Parameters.AddWithValue("@review_id", reviewId);
+                            skCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                            await skCmd.ExecuteNonQueryAsync();
+                        }
+
+                        foreach (var tag in recognition.Tags ?? new List<string>())
+                        {
+                            var insertSkTagSql = """
+                                INSERT INTO staff_kudos_tags (id, staff_kudos_id, tag_name, created_at_utc)
+                                VALUES (@id, @kudos_id, @tag, @now);
+                                """;
+                            await using var skTagCmd = new NpgsqlCommand(insertSkTagSql, connection);
+                            skTagCmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                            skTagCmd.Parameters.AddWithValue("@kudos_id", staffKudosId);
+                            skTagCmd.Parameters.AddWithValue("@tag", tag);
+                            skTagCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                            await skTagCmd.ExecuteNonQueryAsync();
+                        }
+                    }
                 }
 
                 return Ok(new
@@ -714,20 +1242,23 @@ namespace Kudos.Server.Controllers
                     businessId,
                     rating = request.Rating,
                     title = request.Title,
-                    body = request.Body
+                    body = request.Body,
+                    positiveTags = normalizedTags,
+                    deletedPhotoCount = deletePhotoIds.Count,
+                    addedPhotoCount = newPhotos.Count
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                await CleanupUploadedReviewPhotosAsync(request.Photos);
+
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+
                 });
             }
         }
-
         [HttpDelete("{businessId:guid}/reviews/{reviewId:guid}")]
         [Authorize]
         public async Task<IActionResult> DeleteReview(Guid businessId, Guid reviewId)
@@ -775,6 +1306,44 @@ namespace Kudos.Server.Controllers
                     userId = (Guid)result;
                 }
 
+                var getPhotoKeysSql = """
+                    SELECT storage_key
+                    FROM review_photos
+                    WHERE review_id = @review_id;
+                    """;
+
+                var storageKeys = new List<string>();
+
+                await using (var getKeysCmd = new NpgsqlCommand(getPhotoKeysSql, connection))
+                {
+                    getKeysCmd.Parameters.AddWithValue("@review_id", reviewId);
+
+                    await using var keysReader = await getKeysCmd.ExecuteReaderAsync();
+
+                    while (await keysReader.ReadAsync())
+                    {
+                        storageKeys.Add(keysReader.GetString(0));
+                    }
+                }
+
+                // Delete staff kudos tags and kudos linked to this review
+                var deleteSkTagsSql = """
+                    DELETE FROM staff_kudos_tags
+                    WHERE staff_kudos_id IN (SELECT id FROM staff_kudos WHERE review_id = @review_id);
+                    """;
+                await using (var dskCmd = new NpgsqlCommand(deleteSkTagsSql, connection))
+                {
+                    dskCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    await dskCmd.ExecuteNonQueryAsync();
+                }
+
+                var deleteSkSql = "DELETE FROM staff_kudos WHERE review_id = @review_id;";
+                await using (var dskCmd2 = new NpgsqlCommand(deleteSkSql, connection))
+                {
+                    dskCmd2.Parameters.AddWithValue("@review_id", reviewId);
+                    await dskCmd2.ExecuteNonQueryAsync();
+                }
+
                 var sql = """
                     DELETE FROM reviews
                     WHERE id = @review_id
@@ -794,17 +1363,138 @@ namespace Kudos.Server.Controllers
                     return NotFound("Review not found or you do not own it.");
                 }
 
+                foreach (var key in storageKeys)
+                {
+                    try
+                    {
+                        await _s3.DeleteObjectAsync(new DeleteObjectRequest
+                        {
+                            BucketName = _r2.BucketName,
+                            Key = key
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete review photo from storage");
+                    }
+                }
+
                 return NoContent();
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
+
+        private async Task CleanupUploadedReviewPhotosAsync(List<ReviewPhotoInput>? photos)
+        {
+            if (photos == null || photos.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var photo in photos)
+            {
+                if (string.IsNullOrWhiteSpace(photo.StorageKey))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await _s3.DeleteObjectAsync(new DeleteObjectRequest
+                    {
+                        BucketName = _r2.BucketName,
+                        Key = photo.StorageKey
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete orphaned review photo");
+                }
+            }
+        }
+
+        [HttpPost("{businessId:guid}/reviews/{reviewId:guid}/flag")]
+        [Authorize]
+        public async Task<IActionResult> FlagReview(Guid businessId, Guid reviewId, [FromBody] FlagReviewRequest request)
+        {
+            try
+            {
+                var email = User.FindFirst(ClaimTypes.Email)?.Value
+                    ?? User.FindFirst(ClaimTypes.Name)?.Value
+                    ?? User.Identity?.Name;
+
+                if (string.IsNullOrWhiteSpace(email))
+                    return Unauthorized();
+
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                // Get user ID
+                Guid userId;
+                await using (var getUserCmd = new NpgsqlCommand("SELECT id FROM users WHERE email = @email LIMIT 1;", connection))
+                {
+                    getUserCmd.Parameters.AddWithValue("@email", email);
+                    var result = await getUserCmd.ExecuteScalarAsync();
+                    if (result == null) return NotFound("User not found.");
+                    userId = (Guid)result;
+                }
+
+                // Verify review exists for this business
+                await using (var checkCmd = new NpgsqlCommand(
+                    "SELECT COUNT(*) FROM reviews WHERE id = @review_id AND business_id = @business_id;", connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    checkCmd.Parameters.AddWithValue("@business_id", businessId);
+                    var exists = (long)(await checkCmd.ExecuteScalarAsync() ?? 0L);
+                    if (exists == 0) return NotFound("Review not found.");
+                }
+
+                // Can't flag own review
+                await using (var ownCmd = new NpgsqlCommand(
+                    "SELECT COUNT(*) FROM reviews WHERE id = @review_id AND user_id = @user_id;", connection))
+                {
+                    ownCmd.Parameters.AddWithValue("@review_id", reviewId);
+                    ownCmd.Parameters.AddWithValue("@user_id", userId);
+                    var isOwn = (long)(await ownCmd.ExecuteScalarAsync() ?? 0L);
+                    if (isOwn > 0) return BadRequest(new { message = "You cannot flag your own review." });
+                }
+
+                var sql = """
+                    INSERT INTO review_flags (id, review_id, user_id, reason, details, created_at_utc)
+                    VALUES (@id, @review_id, @user_id, @reason, @details, @now)
+                    ON CONFLICT (review_id, user_id) DO NOTHING;
+                    """;
+
+                await using var cmd = new NpgsqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+                cmd.Parameters.AddWithValue("@review_id", reviewId);
+                cmd.Parameters.AddWithValue("@user_id", userId);
+                cmd.Parameters.AddWithValue("@reason", request.Reason);
+                cmd.Parameters.AddWithValue("@details", (object?)request.Details ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { message = "Review flagged. Our team will review it." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+    }
+
+    public class FlagReviewRequest
+    {
+        public string Reason { get; set; } = "";
+        public string? Details { get; set; }
     }
 }

@@ -1,4 +1,3 @@
-// src/app/register/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -15,9 +14,13 @@ export default function RegisterPage() {
 
   return (
     <AuthForm
-      title="Register"
-      buttonText="Create account"
+      title="Create your account"
+      buttonText="Sign up"
       onSubmit={handleRegister}
+      altText="Already have an account?"
+      altLink="/login"
+      altLinkText="Sign in"
+      showTerms
     />
   );
 }

@@ -30,6 +30,7 @@ export type PublicBusinessPhoto = {
   originalUrl: string;
   isPrimary: boolean;
   createdAtUtc: string;
+  uploadedByUserId: string | null;
 };
 
 export type BusinessHour = {
@@ -47,7 +48,28 @@ export type BusinessReview = {
   createdAtUtc: string;
   userEmail: string;
   positiveTags: string[];
+  photos: {
+    id: string;
+    originalUrl: string;
+    createdAtUtc: string;
+  }[];
   isOwnReview: boolean;
+  helpfulCount: number;
+  isMarkedHelpful: boolean;
+  displayName: string;
+  userId: string;
+  userReviewCount: number;
+  businessResponse: {
+    body: string;
+    createdAtUtc: string;
+  } | null;
+  staffRecognitions: {
+    staffMemberId: string;
+    firstName: string;
+    lastName: string;
+    photoUrl: string | null;
+    tags: string[];
+  }[];
 };
 
 export type BusinessReviewsResponse = {
@@ -120,6 +142,13 @@ export async function createBusinessReview(
     title?: string | null;
     body?: string | null;
     positiveTags?: string[];
+    photos?: {
+      storageKey: string;
+      originalUrl: string;
+      contentType?: string | null;
+      sizeBytes?: number | null;
+    }[];
+    staffRecognitions?: { staffMemberId: string; tags: string[] }[];
   }
 ) {
   const res = await apiFetch(`/public/business/${businessId}/reviews`, {
@@ -137,6 +166,15 @@ export async function updateBusinessReview(
     rating: number;
     title?: string | null;
     body?: string | null;
+    positiveTags?: string[];
+    photos?: {
+      storageKey: string;
+      originalUrl: string;
+      contentType?: string | null;
+      sizeBytes?: number | null;
+    }[];
+    deletePhotoIds?: string[];
+    staffRecognitions?: { staffMemberId: string; tags: string[] }[];
   }
 ) {
   const res = await apiFetch(`/public/business/${businessId}/reviews/${reviewId}`, {
@@ -144,6 +182,19 @@ export async function updateBusinessReview(
     body: JSON.stringify(payload),
   });
 
+  return res.json();
+}
+
+export async function flagBusinessReview(
+  businessId: string,
+  reviewId: string,
+  reason: string,
+  details?: string
+) {
+  const res = await apiFetch(`/public/business/${businessId}/reviews/${reviewId}/flag`, {
+    method: "POST",
+    body: JSON.stringify({ reason, details }),
+  });
   return res.json();
 }
 

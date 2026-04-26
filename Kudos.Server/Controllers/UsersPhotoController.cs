@@ -86,11 +86,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -165,11 +164,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }
@@ -278,11 +276,10 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
                 return StatusCode(500, new
                 {
                     message = ex.Message,
-                    stackTrace = ex.StackTrace
+                    
                 });
             }
         }

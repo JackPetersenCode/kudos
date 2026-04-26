@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getMe, logout } from "@/lib/auth";
-import { getDashboardActivity, getProfilePhoto, uploadProfilePhoto } from "@/lib/dashboard";
+import { apiFetch } from "@/lib/api";
+import {
+  getDashboardActivity,
+  getProfilePhoto,
+  uploadProfilePhoto,
+} from "@/lib/dashboard";
+import { getMyBadges, UserBadge } from "@/lib/features";
 import { useRouter } from "next/navigation";
+import RequireAuth from "@/components/RequireAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 type MeResponse = {
   userId: string;
@@ -22,10 +30,13 @@ type OwnedBusiness = {
   membershipRole: string;
 };
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
+  const { token, isReady, isAuthenticated } = useAuth();
 
-  const [me, setMe] = useState<MeResponse | null>(null);
+  const [me, setMe] = useState<(MeResponse & { displayName?: string | null }) | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
   const [businesses, setBusinesses] = useState<OwnedBusiness[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
@@ -39,19 +50,20 @@ export default function DashboardPage() {
     experience: 0,
   });
 
+  const [badges, setBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadDashboard() {
+  async function loadDashboard(activeToken: string) {
     setError("");
 
     try {
-      const [meData, businessesRes, photoData, activityData] = await Promise.all([
+      const [meData, businessesRes, photoData, activityData, badgesData] = await Promise.all([
         getMe(),
         fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/profile/business`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${activeToken}`,
           },
           cache: "no-store",
         }).then(async (res) => {
@@ -60,11 +72,13 @@ export default function DashboardPage() {
         }),
         getProfilePhoto(),
         getDashboardActivity(),
+        getMyBadges().catch(() => []),
       ]);
 
       setMe(meData);
       setBusinesses(businessesRes ?? []);
       setProfilePhotoUrl(photoData?.originalUrl ?? null);
+      setBadges(badgesData);
       setRecentReviews(activityData.recentReviews ?? []);
       setReviewedCategoryCounts(activityData.reviewedCategoryCounts ?? []);
       setPositiveTagTotals(
@@ -84,8 +98,11 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    if (!isReady) return;
+    if (!isAuthenticated || !token) return;
+
+    loadDashboard(token);
+  }, [isReady, isAuthenticated, token]);
 
   async function handleProfilePhotoChange(file: File | null) {
     if (!file) return;
@@ -105,14 +122,14 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <main style={{ padding: 24 }}>Loading dashboard...</main>;
+    return <main style={{ minHeight: "100vh" }} />;
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-      <h1>Dashboard</h1>
+    <main className="page-container" style={{ maxWidth: 1100 }}>
+      <h1 style={{ fontSize: 28, marginBottom: 20 }}>Dashboard</h1>
 
-      {error && <pre style={{ color: "red" }}>{error}</pre>}
+      {error && <div className="error-message">{error}</div>}
 
       <section
         style={{
@@ -144,7 +161,12 @@ export default function DashboardPage() {
               <img
                 src={profilePhotoUrl}
                 alt="Profile"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  background: "#f5f5f5",
+                }}
               />
             ) : (
               <span style={{ color: "#777" }}>No photo</span>
@@ -163,12 +185,80 @@ export default function DashboardPage() {
 
         <div>
           <h2 style={{ marginTop: 0 }}>Your Profile</h2>
-          <p><strong>Email:</strong> {me?.email}</p>
-          <p><strong>Role:</strong> {me?.role}</p>
-          <p><strong>Joined:</strong> {me ? new Date(me.createdAtUtc).toLocaleString() : "—"}</p>
 
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <strong>Display Name:</strong>{" "}
+            {editingName ? (
+              <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                <input
+                  value={displayNameInput}
+                  onChange={(e) => setDisplayNameInput(e.target.value)}
+                  style={{ padding: "4px 8px", width: 180 }}
+                />
+                <button
+                  className="btn-accent"
+                  style={{ padding: "4px 12px", fontSize: 13 }}
+                  onClick={async () => {
+                    if (!displayNameInput.trim()) return;
+                    try {
+                      await apiFetch("/Profile/display-name", {
+                        method: "PUT",
+                        body: JSON.stringify({ displayName: displayNameInput.trim() }),
+                      });
+                      setMe((prev) => prev ? { ...prev, displayName: displayNameInput.trim() } : prev);
+                      setEditingName(false);
+                    } catch {
+                      // error
+                    }
+                  }}
+                >
+                  Save
+                </button>
+                <button className="btn-ghost" style={{ padding: "4px 8px", fontSize: 13 }} onClick={() => setEditingName(false)}>
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <span>
+                {me?.displayName ?? me?.email?.split("@")[0] ?? "—"}
+                <button
+                  className="btn-ghost"
+                  style={{ padding: "2px 8px", fontSize: 12, marginLeft: 8 }}
+                  onClick={() => {
+                    setDisplayNameInput(me?.displayName ?? "");
+                    setEditingName(true);
+                  }}
+                >
+                  Edit
+                </button>
+              </span>
+            )}
+          </div>
+
+          <p>
+            <strong>Email:</strong> {me?.email}
+          </p>
+          <p>
+            <strong>Role:</strong> {me?.role}
+          </p>
+          <p>
+            <strong>Joined:</strong>{" "}
+            {me ? new Date(me.createdAtUtc).toLocaleString() : "—"}
+          </p>
+
+          <div style={{ marginTop: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
             <Link href="/business/new">Create a business</Link>
+            <Link href="/dashboard/ads">Manage Ads</Link>
+            <Link href="/dashboard/favorites">Saved Businesses</Link>
+            <Link href="/dashboard/feed">Activity Feed</Link>
+            {me?.role === "admin" && (
+              <>
+                <Link href="/admin/stats">Site Analytics</Link>
+                <Link href="/admin/import">Data Import</Link>
+                <Link href="/admin/ads">Review Ads</Link>
+                <Link href="/admin/claims">Review Claims</Link>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -282,6 +372,31 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {badges.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2>Your Badges</h2>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {badges.map((badge) => (
+              <div
+                key={badge.badgeKey}
+                style={{
+                  border: "1px solid #e0d4f7",
+                  borderRadius: 12,
+                  padding: "12px 18px",
+                  background: "#f5f0ff",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#6b21a8" }}>{badge.badgeLabel}</div>
+                <div style={{ fontSize: 11, color: "#9b7fd4", marginTop: 4 }}>
+                  {new Date(badge.awardedAtUtc).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section style={{ marginBottom: 32 }}>
         <h2>Recent Review Activity</h2>
 
@@ -307,9 +422,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
 
-                <div style={{ marginBottom: 6 }}>
-                  Rating: {review.rating}/5
-                </div>
+                <span className="tag-accent" style={{ fontSize: 12, marginBottom: 6, display: "inline-block" }}>review</span>
 
                 {review.title && (
                   <div style={{ marginBottom: 6 }}>
@@ -318,9 +431,7 @@ export default function DashboardPage() {
                 )}
 
                 {review.body && (
-                  <div style={{ color: "#555", marginBottom: 8 }}>
-                    {review.body}
-                  </div>
+                  <div style={{ color: "#555", marginBottom: 8 }}>{review.body}</div>
                 )}
 
                 <small>{new Date(review.createdAtUtc).toLocaleString()}</small>
@@ -339,5 +450,13 @@ export default function DashboardPage() {
         Logout
       </button>
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <RequireAuth>
+      <DashboardContent />
+    </RequireAuth>
   );
 }

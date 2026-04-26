@@ -25,12 +25,10 @@ export type AccessibleBusiness = {
 
 export async function getProfile(): Promise<ProfileResponse> {
   const res = await apiFetch("/Profile");
-  console.log(res);
   return res.json();
 }
 
 export async function getAccessibleBusinesses(): Promise<AccessibleBusiness[]> {
   const res = await apiFetch("/Profile/business");
-  console.log(res);
   return res.json();
 }

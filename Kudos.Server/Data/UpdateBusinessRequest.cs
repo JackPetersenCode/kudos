@@ -22,5 +22,6 @@ namespace Kudos.Server.Data
         public bool OutdoorSeating { get; set; }
 
         public string TimeZone { get; set; } = "America/Chicago";
+        public List<BusinessHourInput>? Hours { get; set; }
     }
 }

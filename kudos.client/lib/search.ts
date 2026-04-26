@@ -12,6 +12,10 @@ export type SearchBusinessResult = {
   averageRating: number;
   reviewCount: number;
   categories: string[];
+  isPremium: boolean;
+  isVerified: boolean;
+  distanceMiles: number | null;
+  isOpenNow: boolean;
 };
 
 export type SearchCityCount = {
@@ -29,6 +33,9 @@ export type SearchResponse = {
   results: SearchBusinessResult[];
   cityCounts: SearchCityCount[];
   categoryCounts: SearchCategoryCount[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 export async function searchBusinesses(params: {
@@ -47,6 +54,13 @@ export async function searchBusinesses(params: {
   south?: number;
   east?: number;
   west?: number;
+  minRating?: number;
+  sort?: string;
+  lat?: number;
+  lng?: number;
+  radiusMiles?: number;
+  page?: number;
+  pageSize?: number;
 }): Promise<SearchResponse> {
   const searchParams = new URLSearchParams();
 
@@ -66,6 +80,13 @@ export async function searchBusinesses(params: {
   if (params.south !== undefined) searchParams.set("south", String(params.south));
   if (params.east !== undefined) searchParams.set("east", String(params.east));
   if (params.west !== undefined) searchParams.set("west", String(params.west));
+  if (params.minRating) searchParams.set("minRating", String(params.minRating));
+  if (params.sort) searchParams.set("sort", params.sort);
+  if (params.lat !== undefined) searchParams.set("lat", String(params.lat));
+  if (params.lng !== undefined) searchParams.set("lng", String(params.lng));
+  if (params.radiusMiles) searchParams.set("radiusMiles", String(params.radiusMiles));
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_BASE_URL}/public/search?${searchParams.toString()}`,
@@ -84,5 +105,8 @@ export async function searchBusinesses(params: {
     results: data.results ?? [],
     cityCounts: data.cityCounts ?? [],
     categoryCounts: data.categoryCounts ?? [],
+    totalCount: data.totalCount ?? 0,
+    page: data.page ?? 1,
+    pageSize: data.pageSize ?? 20,
   };
 }

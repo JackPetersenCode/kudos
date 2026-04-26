@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,15 +23,16 @@ builder.Configuration
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-Console.WriteLine("ENV KEY: " + Environment.GetEnvironmentVariable("OPENAI__ApiKey"));
-Console.WriteLine("CONFIG KEY: " + builder.Configuration["OpenAI:ApiKey"]);
+// API keys are loaded from configuration — do not log them
+
+var allowedOrigins = builder.Configuration["App:AllowedOrigins"]?.Split(',', StringSplitOptions.TrimEntries) ?? ["http://localhost:3000"];
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000")
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -79,13 +81,109 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+
+        // Auth endpoints: strict limit (10/min)
+        if (path.Contains("/auth/"))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter($"auth_{ip}", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+            });
+        }
+
+        // General: 100/min per IP
+        return RateLimitPartition.GetFixedWindowLimiter($"general_{ip}", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+        });
+    });
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"message\":\"Too many requests. Please try again later.\"}",
+            cancellationToken);
+    };
+});
 builder.Services.AddSingleton<OpenAIService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<YelpImportService>();
+builder.Services.AddScoped<YelpDatasetImportService>();
+builder.Services.AddScoped<OpenStreetMapImportService>();
+builder.Services.AddHostedService<YelpImportBackgroundJob>();
 
 var app = builder.Build();
 
+// Auto-run SQL migrations on startup
+{
+    var connectionString = app.Configuration.GetConnectionString("WebApiDatabase");
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        var sqlDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "sql");
+        var migrationFile = Path.Combine(sqlDir, "migrate_new_features.sql");
+
+        if (File.Exists(migrationFile))
+        {
+            try
+            {
+                await using var conn = new Npgsql.NpgsqlConnection(connectionString);
+                await conn.OpenAsync();
+                var sql = await File.ReadAllTextAsync(migrationFile);
+                await using var cmd = new Npgsql.NpgsqlCommand(sql, conn);
+                await cmd.ExecuteNonQueryAsync();
+                Console.WriteLine("Migration applied: migrate_new_features.sql");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Migration note: {ex.Message}");
+            }
+        }
+
+        // Seed demo data — only in Development
+        if (!app.Environment.IsProduction())
+        {
+            var seedFile = Path.Combine(sqlDir, "seed_demo_data.sql");
+            if (File.Exists(seedFile))
+            {
+                try
+                {
+                    await using var conn2 = new Npgsql.NpgsqlConnection(connectionString);
+                    await conn2.OpenAsync();
+
+                    var seedSql = await File.ReadAllTextAsync(seedFile);
+                    await using var seedCmd = new Npgsql.NpgsqlCommand(seedSql, conn2);
+                    await seedCmd.ExecuteNonQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Seed note: {ex.Message}");
+                }
+            }
+        }
+    }
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("Frontend");
 app.MapControllers();
 
 app.Run();

@@ -20,7 +20,7 @@ export async function apiFetch(
   });
 
   if (!response.ok) {
-    let parsed: any = null;
+    let parsed: Record<string, unknown> | null = null;
     let text = "";
 
     try {
@@ -31,14 +31,14 @@ export async function apiFetch(
     }
 
     const error = new Error(
-      parsed?.message || text || "Request failed"
+      (parsed?.message as string) || text || "Request failed"
     ) as Error & {
       reason?: string;
       status?: number;
-      data?: any;
+      data?: Record<string, unknown> | null;
     };
 
-    error.reason = parsed?.reason;
+    error.reason = parsed?.reason as string | undefined;
     error.status = response.status;
     error.data = parsed;
 
