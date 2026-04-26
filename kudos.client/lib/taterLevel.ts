@@ -5,9 +5,9 @@ const LEVELS = [
   { name: "Tater Titan", min: 25, image: "/tater-titan.png" },
   { name: "Loaded Legend", min: 50, image: "/loaded-legend.png" },
   { name: "Golden Tater", min: 100, image: "/golden-tater.png" },
-] as const;
+];
 
-export type TaterLevel = (typeof LEVELS)[number];
+export type TaterLevel = { name: string; min: number; image: string };
 
 export function getTaterLevel(reviewCount: number): TaterLevel {
   let level = LEVELS[0];
