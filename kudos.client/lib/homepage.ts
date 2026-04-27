@@ -28,7 +28,7 @@ export async function getHomepageCategorySlides(): Promise<HomepageSlidesRespons
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_BASE_URL}/public/homepage/category-slides`,
     {
-      cache: "no-store",
+      next: { revalidate: 300 },
     }
   );
 

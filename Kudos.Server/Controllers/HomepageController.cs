@@ -67,47 +67,36 @@ namespace Kudos.Server.Controllers
                         }
                     }
 
+                    // Fast random pick: get a random business with a photo in this category
                     var featuredSql = """
-                        SELECT
-                            b.id,
-                            b.name,
-                            b.slug,
-                            b.city,
-                            b.state,
-                            bp.original_url,
-                            COALESCE(AVG(r.rating), 0)::numeric(10,2) AS average_rating,
-                            COUNT(DISTINCT r.id)::int AS review_count,
-                            COALESCE(
-                                ARRAY_REMOVE(ARRAY_AGG(DISTINCT c2.name), NULL),
-                                ARRAY[]::text[]
-                            ) AS category_names
-                        FROM businesses b
-                        INNER JOIN business_categories bc
-                            ON bc.business_id = b.id
-                        INNER JOIN categories c
-                            ON c.id = bc.category_id
-                        LEFT JOIN LATERAL (
-                            SELECT original_url
-                            FROM business_photos
-                            WHERE business_id = b.id
-                            ORDER BY is_primary DESC, created_at_utc DESC
+                        WITH candidates AS (
+                            SELECT b.id
+                            FROM businesses b
+                            INNER JOIN business_categories bc ON bc.business_id = b.id
+                            INNER JOIN categories c ON c.id = bc.category_id
+                            INNER JOIN business_photos bp ON bp.business_id = b.id
+                            WHERE c.parent_slug = @parent_slug
+                            ORDER BY b.id
+                            OFFSET floor(random() * GREATEST(
+                                (SELECT COUNT(*) FROM businesses b2
+                                 INNER JOIN business_categories bc2 ON bc2.business_id = b2.id
+                                 INNER JOIN categories c2 ON c2.id = bc2.category_id
+                                 INNER JOIN business_photos bp2 ON bp2.business_id = b2.id
+                                 WHERE c2.parent_slug = @parent_slug), 1))
                             LIMIT 1
-                        ) bp ON true
-                        LEFT JOIN reviews r
-                            ON r.business_id = b.id
-                        LEFT JOIN business_categories bc2
-                            ON bc2.business_id = b.id
-                        LEFT JOIN categories c2
-                            ON c2.id = bc2.category_id
-                        WHERE c.parent_slug = @parent_slug
-                        GROUP BY
-                            b.id,
-                            b.name,
-                            b.slug,
-                            b.city,
-                            b.state,
-                            bp.original_url
-                        ORDER BY RANDOM()
+                        )
+                        SELECT
+                            b.id, b.name, b.slug, b.city, b.state,
+                            (SELECT original_url FROM business_photos WHERE business_id = b.id ORDER BY is_primary DESC LIMIT 1),
+                            COALESCE((SELECT AVG(rating)::numeric(10,2) FROM reviews WHERE business_id = b.id), 0),
+                            (SELECT COUNT(*)::int FROM reviews WHERE business_id = b.id),
+                            COALESCE(
+                                (SELECT ARRAY_AGG(DISTINCT c3.name) FROM business_categories bc3
+                                 JOIN categories c3 ON c3.id = bc3.category_id WHERE bc3.business_id = b.id),
+                                ARRAY[]::text[]
+                            )
+                        FROM businesses b
+                        WHERE b.id = (SELECT id FROM candidates)
                         LIMIT 1;
                         """;
 
