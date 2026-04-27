@@ -4,7 +4,12 @@ import { getHomepageCategorySlides } from "@/lib/homepage";
 import SponsoredBanner from "@/components/SponsoredBanner";
 
 export default async function HomePage() {
-  const data = await getHomepageCategorySlides();
+  let data = { slides: [] as any[] };
+  try {
+    data = await getHomepageCategorySlides();
+  } catch {
+    // API unreachable — render page without slides
+  }
 
   return (
     <>
