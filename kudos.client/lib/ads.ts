@@ -288,3 +288,28 @@ export async function confirmPaymentHold(campaignId: string) {
   });
   return res.json();
 }
+
+// Ad image upload
+export async function uploadAdImage(file: File): Promise<string> {
+  const uploadUrlRes = await apiFetch("/ads/upload-image", {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+    }),
+  });
+
+  const { uploadUrl, publicUrl } = await uploadUrlRes.json();
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Failed to upload image");
+  }
+
+  return publicUrl;
+}

@@ -1,6 +1,9 @@
+using Amazon.S3;
+using Amazon.S3.Model;
 using Kudos.Server.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using System.Security.Claims;
 
@@ -12,10 +15,14 @@ namespace Kudos.Server.Controllers
     public class AdsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly IAmazonS3 _s3;
+        private readonly CloudflareR2Options _r2;
 
-        public AdsController(IConfiguration configuration)
+        public AdsController(IConfiguration configuration, IAmazonS3 s3, IOptions<CloudflareR2Options> r2Options)
         {
             _configuration = configuration;
+            _s3 = s3;
+            _r2 = r2Options.Value;
         }
 
         [HttpGet("mine")]
@@ -1297,5 +1304,47 @@ namespace Kudos.Server.Controllers
             var result = await cmd.ExecuteScalarAsync();
             return result != null;
         }
+
+        [HttpPost("upload-image")]
+        public async Task<IActionResult> CreateAdImageUploadUrl([FromBody] AdImageUploadRequest request)
+        {
+            try
+            {
+                var email = GetCurrentEmail();
+                if (string.IsNullOrWhiteSpace(email))
+                    return Unauthorized();
+
+                var extension = Path.GetExtension(request.FileName);
+                var key = $"ads/{Guid.NewGuid()}{extension}";
+
+                var presignedRequest = new GetPreSignedUrlRequest
+                {
+                    BucketName = _r2.BucketName,
+                    Key = key,
+                    Verb = HttpVerb.PUT,
+                    Expires = DateTime.UtcNow.AddMinutes(10),
+                    ContentType = request.ContentType
+                };
+
+                var uploadUrl = _s3.GetPreSignedURL(presignedRequest);
+
+                return Ok(new
+                {
+                    uploadUrl,
+                    storageKey = key,
+                    publicUrl = $"{_r2.PublicBaseUrl}/{key}"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+    }
+
+    public class AdImageUploadRequest
+    {
+        public string FileName { get; set; } = "";
+        public string ContentType { get; set; } = "image/jpeg";
     }
 }

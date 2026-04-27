@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { uploadAdImage } from "@/lib/ads";
 
 type BusinessOption = {
   id: string;
@@ -55,6 +56,10 @@ export default function AdForm({
   mode = "create",
   hideCampaign = false,
 }: Props) {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(initialValues?.imageUrl || null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [values, setValues] = useState<AdFormValues>({
     businessId: initialValues?.businessId ?? "",
     title: initialValues?.title ?? "",
@@ -133,6 +138,20 @@ export default function AdForm({
     }
 
     try {
+      // Upload image to R2 if a file was selected
+      if (imageFile) {
+        setUploadingImage(true);
+        try {
+          const publicUrl = await uploadAdImage(imageFile);
+          values.imageUrl = publicUrl;
+        } catch {
+          setError("Failed to upload image. Please try again.");
+          setUploadingImage(false);
+          return;
+        }
+        setUploadingImage(false);
+      }
+
       await onSubmit(values);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save ad");
@@ -211,14 +230,59 @@ export default function AdForm({
 
           <div>
             <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
-              Image URL
+              Ad Image
             </label>
-            <input
-              value={values.imageUrl}
-              onChange={(e) => update("imageUrl", e.target.value)}
-              style={inputStyle}
-              placeholder="https://..."
-            />
+            {imagePreview && (
+              <div style={{ marginBottom: 10, position: "relative", display: "inline-block" }}>
+                <img
+                  src={imagePreview}
+                  alt="Ad preview"
+                  style={{ width: 200, height: 120, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setImageFile(null); setImagePreview(null); update("imageUrl", ""); }}
+                  style={{
+                    position: "absolute", top: -6, right: -6,
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: "var(--color-primary)", color: "white",
+                    border: "2px solid var(--color-surface)",
+                    cursor: "pointer", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                    fontSize: 13, fontWeight: 700, lineHeight: 1, padding: 0,
+                  }}
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {!imagePreview && (
+              <label className="btn-outline" style={{
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 16px", fontSize: 13,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Upload Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setImageFile(file);
+                    setImagePreview(URL.createObjectURL(file));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            {uploadingImage && <div style={{ fontSize: 13, color: "var(--color-text-muted)", marginTop: 6 }}>Uploading image...</div>}
           </div>
 
           <div>
