@@ -181,6 +181,26 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+
+// Ensure CORS headers are present on all responses, including 401/500
+app.Use(async (context, next) =>
+{
+    await next();
+
+    // If CORS headers are missing on an error response, re-apply them
+    if (context.Response.StatusCode >= 400 &&
+        !context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin))
+        {
+            context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
+            context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+            context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
+        }
+    }
+});
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
