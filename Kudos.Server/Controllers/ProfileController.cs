@@ -138,15 +138,23 @@ public class ProfileController : ControllerBase
             await using var cmd = new NpgsqlCommand(sql, connection);
             cmd.Parameters.AddWithValue("@user_id", userId);
 
-            await using var reader = await cmd.ExecuteReaderAsync();
-            if (!await reader.ReadAsync())
-                return NotFound("User not found.");
+            string email;
+            string displayName;
+            DateTime joinedAtUtc;
+            int reviewCount;
+            int checkinCount;
 
-            var email = reader.GetString(2);
-            var displayName = reader.IsDBNull(1) ? email.Split('@')[0] : reader.GetString(1);
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                if (!await reader.ReadAsync())
+                    return NotFound("User not found.");
 
-            // Get badges
-            await reader.CloseAsync();
+                email = reader.GetString(2);
+                displayName = reader.IsDBNull(1) ? email.Split('@')[0] : reader.GetString(1);
+                joinedAtUtc = reader.GetDateTime(3);
+                reviewCount = reader.GetInt32(4);
+                checkinCount = reader.GetInt32(5);
+            }
 
             var badgesSql = "SELECT badge_key, badge_label, awarded_at_utc FROM user_badges WHERE user_id = @user_id ORDER BY awarded_at_utc DESC;";
             var badges = new List<object>();
@@ -199,9 +207,9 @@ public class ProfileController : ControllerBase
             {
                 userId,
                 displayName,
-                joinedAtUtc = reader.GetDateTime(3),
-                reviewCount = reader.GetInt32(4),
-                checkinCount = reader.GetInt32(5),
+                joinedAtUtc,
+                reviewCount,
+                checkinCount,
                 badges,
                 recentReviews = reviews
             });

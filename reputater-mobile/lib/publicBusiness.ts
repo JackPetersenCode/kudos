@@ -1,4 +1,4 @@
-import { apiUrl } from "./api";
+import { apiFetch, apiUrl } from "./api";
 
 export type SearchResult = {
   id: string;
@@ -97,7 +97,6 @@ export type CreateReviewPayload = {
 };
 
 export async function createBusinessReview(businessId: string, payload: CreateReviewPayload) {
-  const { apiFetch } = await import("./api");
   const res = await apiFetch(`/public/business/${businessId}/reviews`, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -106,7 +105,6 @@ export async function createBusinessReview(businessId: string, payload: CreateRe
 }
 
 export async function uploadReviewPhoto(file: { uri: string; name: string; type: string }): Promise<{ storageKey: string; originalUrl: string }> {
-  const { apiFetch } = await import("./api");
   const urlRes = await apiFetch("/reviews/photos/upload-url", {
     method: "POST",
     body: JSON.stringify({ fileName: file.name, contentType: file.type }),

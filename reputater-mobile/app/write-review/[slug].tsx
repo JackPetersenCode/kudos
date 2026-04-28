@@ -53,7 +53,7 @@ export default function WriteReviewScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.8,
       selectionLimit: 5 - photos.length,
       allowsMultipleSelection: true,
@@ -157,7 +157,7 @@ export default function WriteReviewScreen() {
           <Text style={styles.section}>Photos (up to 5)</Text>
           <View style={styles.photoRow}>
             {photos.map((p, i) => (
-              <View key={i} style={styles.photoWrap}>
+              <View key={p.uri} style={styles.photoWrap}>
                 <Image source={{ uri: p.uri }} style={styles.photo} />
                 <Pressable
                   onPress={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}

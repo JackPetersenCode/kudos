@@ -25,10 +25,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    SecureStore.getItemAsync("token").then((t) => {
-      setToken(t);
-      setIsReady(true);
-    });
+    SecureStore.getItemAsync("token")
+      .then((t) => setToken(t))
+      .catch(() => {})
+      .finally(() => setIsReady(true));
   }, []);
 
   return (
@@ -38,14 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!token,
         isReady,
         signIn: async (email, password) => {
-          await authLib.login(email, password);
-          const t = await SecureStore.getItemAsync("token");
-          setToken(t);
+          const data = await authLib.login(email, password);
+          if (data?.token) setToken(data.token);
         },
         signUp: async (email, password) => {
-          await authLib.register(email, password);
-          const t = await SecureStore.getItemAsync("token");
-          setToken(t);
+          const data = await authLib.register(email, password);
+          if (data?.token) setToken(data.token);
         },
         signOut: async () => {
           await authLib.logout();

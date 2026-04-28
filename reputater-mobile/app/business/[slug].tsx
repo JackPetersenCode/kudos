@@ -19,6 +19,7 @@ export default function BusinessDetailScreen() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [checkInCount, setCheckInCount] = useState(0);
 
+  // Load business + reviews + photos + checkins (no auth required)
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -33,18 +34,22 @@ export default function BusinessDetailScreen() {
         setReviews(reviewData.reviews);
         setPhotos(photoData);
         setCheckInCount(checkinData.totalCheckIns);
-
-        // Check favorite status (auth required, may fail silently)
-        if (isAuthenticated) {
-          getFavoriteStatus(biz.id)
-            .then((s) => setIsFavorited(s.isFavorited))
-            .catch(() => {});
-        }
       } finally {
         setLoading(false);
       }
     })();
   }, [slug]);
+
+  // Re-check favorite status when auth or business changes
+  useEffect(() => {
+    if (!business || !isAuthenticated) {
+      setIsFavorited(false);
+      return;
+    }
+    getFavoriteStatus(business.id)
+      .then((s) => setIsFavorited(s.isFavorited))
+      .catch(() => {});
+  }, [business, isAuthenticated]);
 
   if (loading) {
     return (
