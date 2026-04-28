@@ -22,3 +22,41 @@ export async function getCheckInCount(businessId: string): Promise<{ totalCheckI
   if (!res.ok) return { totalCheckIns: 0, uniqueUsers: 0 };
   return res.json();
 }
+
+export type Notification = {
+  id: string;
+  notificationType: string;
+  subject: string;
+  body: string;
+  isRead: boolean;
+  createdAtUtc: string;
+};
+
+export async function getNotifications(): Promise<Notification[]> {
+  const res = await apiFetch("/profile/notifications");
+  return res.json();
+}
+
+export async function getUnreadNotificationCount(): Promise<{ unreadCount: number }> {
+  const res = await apiFetch("/profile/notifications/unread-count");
+  return res.json();
+}
+
+export async function markNotificationsRead(): Promise<void> {
+  await apiFetch("/profile/notifications/mark-read", { method: "POST" });
+}
+
+export type Favorite = {
+  businessId: string;
+  businessName: string;
+  businessSlug: string;
+  city: string | null;
+  state: string | null;
+  primaryPhotoUrl: string | null;
+  favoritedAt: string;
+};
+
+export async function getFavorites(): Promise<Favorite[]> {
+  const res = await apiFetch("/favorites");
+  return res.json();
+}

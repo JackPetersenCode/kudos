@@ -8,6 +8,7 @@ import * as ImagePicker from "expo-image-picker";
 import {
   getBusiness, createBusinessReview, uploadReviewPhoto, PublicBusiness,
 } from "../../lib/publicBusiness";
+import { getStaffMembers, StaffMember } from "../../lib/staff";
 import { useAuth } from "../../contexts/AuthContext";
 import { colors } from "../../lib/theme";
 
@@ -17,6 +18,14 @@ const TAGS = [
   { key: "cleanliness", label: "Cleanliness", icon: "🧼" },
   { key: "value", label: "Value", icon: "💰" },
   { key: "experience", label: "Experience", icon: "✨" },
+];
+
+const STAFF_TAGS = [
+  { key: "friendly", label: "Friendly", icon: "😊" },
+  { key: "knowledgeable", label: "Knowledgeable", icon: "🧠" },
+  { key: "efficient", label: "Efficient", icon: "⚡" },
+  { key: "professional", label: "Professional", icon: "👔" },
+  { key: "went-above-and-beyond", label: "Above & Beyond", icon: "🌟" },
 ];
 
 type StagedPhoto = { uri: string; name: string; type: string };
@@ -30,6 +39,8 @@ export default function WriteReviewScreen() {
   const [body, setBody] = useState("");
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffRecognitions, setStaffRecognitions] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (!isReady) return;
@@ -38,8 +49,34 @@ export default function WriteReviewScreen() {
       return;
     }
     if (!slug) return;
-    getBusiness(slug).then(setBusiness).catch(() => {});
+    getBusiness(slug)
+      .then(async (biz) => {
+        setBusiness(biz);
+        const staffData = await getStaffMembers(biz.id).catch(() => [] as StaffMember[]);
+        setStaff(staffData);
+      })
+      .catch(() => {});
   }, [slug, isReady, isAuthenticated]);
+
+  function toggleStaff(staffId: string) {
+    setStaffRecognitions((prev) => {
+      if (prev[staffId]) {
+        const { [staffId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [staffId]: [] };
+    });
+  }
+
+  function toggleStaffTag(staffId: string, tag: string) {
+    setStaffRecognitions((prev) => {
+      const current = prev[staffId] ?? [];
+      const updated = current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : [...current, tag];
+      return { ...prev, [staffId]: updated };
+    });
+  }
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
@@ -80,12 +117,18 @@ export default function WriteReviewScreen() {
         const result = await uploadReviewPhoto(photo);
         uploaded.push({ ...result, contentType: photo.type });
       }
+      const staffPayload = Object.entries(staffRecognitions).map(([staffMemberId, tags]) => ({
+        staffMemberId,
+        tags,
+      }));
+
       await createBusinessReview(business.id, {
         rating: Math.max(1, selectedTags.length),
         title: title.trim() || null,
         body: body.trim() || null,
         positiveTags: selectedTags,
         photos: uploaded,
+        staffRecognitions: staffPayload,
       });
       Alert.alert("Posted!", "Your review is live.", [
         { text: "OK", onPress: () => router.replace(`/business/${slug}`) },
@@ -153,6 +196,69 @@ export default function WriteReviewScreen() {
             multiline
             maxLength={2000}
           />
+
+          {staff.length > 0 && (
+            <>
+              <Text style={styles.section}>Recognize a team member (optional)</Text>
+              <View style={styles.tagGrid}>
+                {staff.map((m) => {
+                  const active = !!staffRecognitions[m.id];
+                  const initials = `${m.firstName[0] ?? ""}${m.lastName[0] ?? ""}`.toUpperCase();
+                  return (
+                    <Pressable
+                      key={m.id}
+                      onPress={() => toggleStaff(m.id)}
+                      style={[styles.staffChip, active && styles.staffChipActive]}
+                    >
+                      {m.photoUrl ? (
+                        <Image source={{ uri: m.photoUrl }} style={styles.staffAvatar} />
+                      ) : (
+                        <View style={[styles.staffAvatar, styles.staffAvatarFallback]}>
+                          <Text style={styles.staffAvatarText}>{initials}</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.staffName, active && { color: colors.accent }]}>
+                        {m.firstName}
+                      </Text>
+                      {active && <Text style={{ color: colors.accent, fontSize: 14 }}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {Object.keys(staffRecognitions).length > 0 && (
+                <View style={{ marginTop: 12, gap: 12 }}>
+                  {Object.entries(staffRecognitions).map(([staffId, tags]) => {
+                    const member = staff.find((m) => m.id === staffId);
+                    if (!member) return null;
+                    return (
+                      <View key={staffId} style={styles.staffTagBox}>
+                        <Text style={styles.staffTagBoxTitle}>
+                          What did {member.firstName} do well?
+                        </Text>
+                        <View style={styles.tagGrid}>
+                          {STAFF_TAGS.map((t) => {
+                            const active = tags.includes(t.key);
+                            return (
+                              <Pressable
+                                key={t.key}
+                                onPress={() => toggleStaffTag(staffId, t.key)}
+                                style={[styles.tagSm, active && styles.tagActive]}
+                              >
+                                <Text style={[styles.tagTextSm, active && styles.tagTextActive]}>
+                                  {t.icon} {t.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
 
           <Text style={styles.section}>Photos (up to 5)</Text>
           <View style={styles.photoRow}>
@@ -226,4 +332,24 @@ const styles = StyleSheet.create({
     marginTop: 28, alignItems: "center",
   },
   submitText: { color: "white", fontWeight: "700", fontSize: 16 },
+  staffChip: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  staffChipActive: { borderColor: colors.accent, borderWidth: 2, backgroundColor: "#fef9eb" },
+  staffAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.border },
+  staffAvatarFallback: { backgroundColor: "#fff7e6", alignItems: "center", justifyContent: "center" },
+  staffAvatarText: { fontSize: 10, fontWeight: "800", color: colors.accent },
+  staffName: { fontSize: 13, fontWeight: "600", color: colors.text },
+  staffTagBox: {
+    padding: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  staffTagBoxTitle: { fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: 8 },
+  tagSm: {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  tagTextSm: { fontSize: 12, color: colors.text, fontWeight: "600" },
 });

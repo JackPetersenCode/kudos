@@ -23,6 +23,8 @@ export default function RootLayout() {
             <Stack.Screen name="register" options={{ title: "Create account" }} />
             <Stack.Screen name="business/[slug]" options={{ title: "Business" }} />
             <Stack.Screen name="write-review/[slug]" options={{ title: "Write a Review" }} />
+            <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+            <Stack.Screen name="favorites" options={{ title: "Saved" }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>

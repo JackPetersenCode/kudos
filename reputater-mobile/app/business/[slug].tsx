@@ -5,6 +5,8 @@ import { getBusiness, getBusinessReviews, getBusinessPhotos, PublicBusiness, Rev
 import { useAuth } from "../../contexts/AuthContext";
 import { getTaterLevel } from "../../lib/taterLevel";
 import { addFavorite, removeFavorite, getFavoriteStatus, checkIn, getCheckInCount } from "../../lib/features";
+import { getStaffMembers, StaffMember } from "../../lib/staff";
+import StaffSection from "../../components/StaffSection";
 import { colors } from "../../lib/theme";
 
 const PLACEHOLDER = "https://pub-e3a9c8c4ae654841ba1d956cb83dc898.r2.dev/placeholders/default.jpg";
@@ -18,6 +20,7 @@ export default function BusinessDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [checkInCount, setCheckInCount] = useState(0);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
 
   // Load business + reviews + photos + checkins (no auth required)
   useEffect(() => {
@@ -26,14 +29,16 @@ export default function BusinessDetailScreen() {
       try {
         const biz = await getBusiness(slug);
         setBusiness(biz);
-        const [reviewData, photoData, checkinData] = await Promise.all([
+        const [reviewData, photoData, checkinData, staffData] = await Promise.all([
           getBusinessReviews(biz.id).catch(() => ({ reviews: [], reviewCount: 0 })),
           getBusinessPhotos(biz.id).catch(() => []),
           getCheckInCount(biz.id).catch(() => ({ totalCheckIns: 0, uniqueUsers: 0 })),
+          getStaffMembers(biz.id).catch(() => [] as StaffMember[]),
         ]);
         setReviews(reviewData.reviews);
         setPhotos(photoData);
         setCheckInCount(checkinData.totalCheckIns);
+        setStaff(staffData);
       } finally {
         setLoading(false);
       }
@@ -168,6 +173,8 @@ export default function BusinessDetailScreen() {
             </ScrollView>
           </View>
         )}
+
+        <StaffSection staff={staff} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>

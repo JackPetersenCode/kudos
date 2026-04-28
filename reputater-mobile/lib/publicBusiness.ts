@@ -94,6 +94,7 @@ export type CreateReviewPayload = {
   body?: string | null;
   positiveTags?: string[];
   photos?: { storageKey: string; originalUrl: string; contentType?: string; sizeBytes?: number }[];
+  staffRecognitions?: { staffMemberId: string; tags: string[] }[];
 };
 
 export async function createBusinessReview(businessId: string, payload: CreateReviewPayload) {
