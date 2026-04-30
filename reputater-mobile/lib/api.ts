@@ -29,3 +29,14 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 export function apiUrl(path: string) {
   return `${API_BASE_URL}${path}`;
 }
+
+// Like apiFetch but doesn't throw on 401 — used for endpoints that work
+// for anonymous users but enrich the response when a JWT is present
+// (e.g. /public/business/:id/reviews returns isOwnReview / isMarkedHelpful).
+export async function apiFetchOptional(path: string, options: RequestInit = {}) {
+  const token = await SecureStore.getItemAsync("token");
+  const headers = new Headers(options.headers || {});
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+}

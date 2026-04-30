@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScrollView, View, Text, Pressable, Image, StyleSheet, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getMe, Me } from "../../lib/auth";
+import { getMe, Me, getProfilePhoto } from "../../lib/auth";
 import { apiUrl } from "../../lib/api";
 import { getTaterLevel } from "../../lib/taterLevel";
 import { colors } from "../../lib/theme";
@@ -19,22 +20,30 @@ export default function AccountScreen() {
   const { isAuthenticated, isReady, signOut } = useAuth();
   const [me, setMe] = useState<Me | null>(null);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const loadAccount = useCallback(async () => {
     if (!isReady || !isAuthenticated) return;
     setLoading(true);
-    getMe()
-      .then(async (m) => {
-        setMe(m);
-        try {
-          const res = await fetch(apiUrl(`/profile/public/${m.userId}`));
-          if (res.ok) setProfile(await res.json());
-        } catch { /* ignore */ }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const m = await getMe();
+      setMe(m);
+      try {
+        const res = await fetch(apiUrl(`/profile/public/${m.userId}`));
+        if (res.ok) setProfile(await res.json());
+      } catch { /* ignore */ }
+      try {
+        const p = await getProfilePhoto();
+        setPhotoUrl(p?.originalUrl ?? null);
+      } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
   }, [isReady, isAuthenticated]);
+
+  // Reload on focus so photo/displayName updates from edit-profile show up
+  useFocusEffect(useCallback(() => { loadAccount(); }, [loadAccount]));
 
   if (!isReady) return <ActivityIndicator color={colors.accent} style={{ marginTop: 32 }} />;
 
@@ -63,11 +72,15 @@ export default function AccountScreen() {
           <ActivityIndicator color={colors.accent} />
         ) : (
           <>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(me?.displayName || me?.email || "?")[0].toUpperCase()}
-              </Text>
-            </View>
+            {photoUrl ? (
+              <Image source={{ uri: photoUrl }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {(me?.displayName || me?.email || "?")[0].toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={styles.name}>
               {me?.displayName || me?.email?.split("@")[0]}
             </Text>
@@ -95,6 +108,22 @@ export default function AccountScreen() {
       <View style={styles.menuCard}>
         <Pressable
           style={styles.menuItem}
+          onPress={() => router.push("/write-review")}
+        >
+          <Text style={styles.menuLabel}>✏️  Write a Review</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+        <View style={styles.menuDivider} />
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => router.push("/my-reviews")}
+        >
+          <Text style={styles.menuLabel}>📝  My Reviews</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+        <View style={styles.menuDivider} />
+        <Pressable
+          style={styles.menuItem}
           onPress={() => router.push("/favorites")}
         >
           <Text style={styles.menuLabel}>♥  Saved Businesses</Text>
@@ -103,9 +132,45 @@ export default function AccountScreen() {
         <View style={styles.menuDivider} />
         <Pressable
           style={styles.menuItem}
+          onPress={() => router.push("/feed")}
+        >
+          <Text style={styles.menuLabel}>📰  Activity Feed</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+        <View style={styles.menuDivider} />
+        <Pressable
+          style={styles.menuItem}
           onPress={() => router.push("/notifications")}
         >
           <Text style={styles.menuLabel}>🔔  Notifications</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.menuCard}>
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => router.push("/dashboard")}
+        >
+          <Text style={styles.menuLabel}>🏢  My Businesses</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+        <View style={styles.menuDivider} />
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => router.push("/dashboard/ads")}
+        >
+          <Text style={styles.menuLabel}>📢  My Ads</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.menuCard}>
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => router.push("/edit-profile")}
+        >
+          <Text style={styles.menuLabel}>⚙️  Edit Profile</Text>
           <Text style={styles.menuArrow}>›</Text>
         </Pressable>
       </View>
@@ -144,7 +209,7 @@ const styles = StyleSheet.create({
   statNum: { fontSize: 22, fontWeight: "800", color: colors.text },
   statLabel: { fontSize: 12, color: colors.textMuted },
   menuCard: {
-    backgroundColor: colors.surface, marginHorizontal: 16,
+    backgroundColor: colors.surface, marginHorizontal: 16, marginBottom: 12,
     borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: "hidden",
   },
   menuItem: {

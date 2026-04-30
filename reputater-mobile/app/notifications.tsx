@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { FlatList, View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import { Stack, router } from "expo-router";
 import { useAuth } from "../contexts/AuthContext";
 import { getNotifications, markNotificationsRead, Notification } from "../lib/features";
@@ -9,6 +9,17 @@ export default function NotificationsScreen() {
   const { isAuthenticated, isReady } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (markRead: boolean) => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+      if (markRead) markNotificationsRead().catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (!isReady) return;
@@ -16,18 +27,14 @@ export default function NotificationsScreen() {
       router.replace("/login");
       return;
     }
-    (async () => {
-      try {
-        const data = await getNotifications();
-        setNotifications(data);
-        markNotificationsRead().catch(() => {});
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [isReady, isAuthenticated]);
+    load(true).finally(() => setLoading(false));
+  }, [isReady, isAuthenticated, load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load(false);
+    setRefreshing(false);
+  }, [load]);
 
   if (loading) {
     return (
@@ -44,6 +51,7 @@ export default function NotificationsScreen() {
         data={notifications}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <View style={[styles.card, !item.isRead && styles.cardUnread]}>
             <Text style={styles.subject}>{item.subject}</Text>

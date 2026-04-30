@@ -21,10 +21,14 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ title: "Sign in" }} />
             <Stack.Screen name="register" options={{ title: "Create account" }} />
+            <Stack.Screen name="forgot-password" options={{ title: "Forgot Password" }} />
             <Stack.Screen name="business/[slug]" options={{ title: "Business" }} />
-            <Stack.Screen name="write-review/[slug]" options={{ title: "Write a Review" }} />
-            <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+            <Stack.Screen name="profile/[userId]" options={{ title: "Profile" }} />
+            <Stack.Screen name="my-reviews" options={{ title: "My Reviews" }} />
+            <Stack.Screen name="edit-profile" options={{ title: "Edit Profile" }} />
             <Stack.Screen name="favorites" options={{ title: "Saved" }} />
+            <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+            <Stack.Screen name="feed" options={{ title: "Feed" }} />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>

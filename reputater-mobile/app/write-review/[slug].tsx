@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import {
-  getBusiness, createBusinessReview, uploadReviewPhoto, PublicBusiness,
+  getBusiness, getBusinessReviews, createBusinessReview, updateBusinessReview, uploadReviewPhoto, PublicBusiness,
 } from "../../lib/publicBusiness";
 import { getStaffMembers, StaffMember } from "../../lib/staff";
 import { useAuth } from "../../contexts/AuthContext";
@@ -31,7 +31,8 @@ const STAFF_TAGS = [
 type StagedPhoto = { uri: string; name: string; type: string };
 
 export default function WriteReviewScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, reviewId } = useLocalSearchParams<{ slug: string; reviewId?: string }>();
+  const isEditing = !!reviewId;
   const { isAuthenticated, isReady } = useAuth();
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -52,11 +53,28 @@ export default function WriteReviewScreen() {
     getBusiness(slug)
       .then(async (biz) => {
         setBusiness(biz);
-        const staffData = await getStaffMembers(biz.id).catch(() => [] as StaffMember[]);
+        const [staffData, reviewData] = await Promise.all([
+          getStaffMembers(biz.id).catch(() => [] as StaffMember[]),
+          isEditing ? getBusinessReviews(biz.id).catch(() => null) : Promise.resolve(null),
+        ]);
         setStaff(staffData);
+
+        if (reviewData && reviewId) {
+          const existing = reviewData.reviews.find((r) => r.id === reviewId);
+          if (existing) {
+            setSelectedTags(existing.positiveTags);
+            setTitle(existing.title ?? "");
+            setBody(existing.body ?? "");
+            const recognitions: Record<string, string[]> = {};
+            for (const sr of existing.staffRecognitions) {
+              recognitions[sr.staffMemberId] = sr.tags;
+            }
+            setStaffRecognitions(recognitions);
+          }
+        }
       })
       .catch(() => {});
-  }, [slug, isReady, isAuthenticated]);
+  }, [slug, reviewId, isEditing, isReady, isAuthenticated]);
 
   function toggleStaff(staffId: string) {
     setStaffRecognitions((prev) => {
@@ -122,15 +140,20 @@ export default function WriteReviewScreen() {
         tags,
       }));
 
-      await createBusinessReview(business.id, {
+      const payload = {
         rating: Math.max(1, selectedTags.length),
         title: title.trim() || null,
         body: body.trim() || null,
         positiveTags: selectedTags,
         photos: uploaded,
         staffRecognitions: staffPayload,
-      });
-      Alert.alert("Posted!", "Your review is live.", [
+      };
+      if (isEditing && reviewId) {
+        await updateBusinessReview(business.id, reviewId, payload);
+      } else {
+        await createBusinessReview(business.id, payload);
+      }
+      Alert.alert(isEditing ? "Updated!" : "Posted!", isEditing ? "Your review has been updated." : "Your review is live.", [
         { text: "OK", onPress: () => router.replace(`/business/${slug}`) },
       ]);
     } catch (err) {
@@ -152,7 +175,7 @@ export default function WriteReviewScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Write a review" }} />
+      <Stack.Screen options={{ title: isEditing ? "Edit review" : "Write a review" }} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
           <View style={styles.bizHeader}>
@@ -285,7 +308,9 @@ export default function WriteReviewScreen() {
             disabled={submitting || selectedTags.length === 0}
             style={[styles.submitBtn, (submitting || selectedTags.length === 0) && { opacity: 0.5 }]}
           >
-            <Text style={styles.submitText}>{submitting ? "Posting..." : "Post Review"}</Text>
+            <Text style={styles.submitText}>
+              {submitting ? (isEditing ? "Saving..." : "Posting...") : (isEditing ? "Save Review" : "Post Review")}
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

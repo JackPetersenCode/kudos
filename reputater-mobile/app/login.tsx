@@ -60,6 +60,12 @@ export default function LoginScreen() {
           <Text style={styles.btnText}>{loading ? "Signing in..." : "Sign in"}</Text>
         </Pressable>
 
+        <View style={{ marginTop: 16, alignItems: "center" }}>
+          <Link href="/forgot-password" style={{ color: colors.accent, fontWeight: "600", fontSize: 13 }}>
+            Forgot password?
+          </Link>
+        </View>
+
         <View style={{ marginTop: 20, alignItems: "center" }}>
           <Text style={{ color: colors.textSecondary }}>
             Don't have an account?{" "}

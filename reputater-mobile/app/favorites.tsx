@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { FlatList, View, Text, StyleSheet, ActivityIndicator, Image, Pressable } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, View, Text, StyleSheet, ActivityIndicator, Image, Pressable, RefreshControl } from "react-native";
 import { Stack, router } from "expo-router";
 import { useAuth } from "../contexts/AuthContext";
 import { getFavorites, Favorite } from "../lib/features";
@@ -11,6 +11,16 @@ export default function FavoritesScreen() {
   const { isAuthenticated, isReady } = useAuth();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await getFavorites();
+      setFavorites(data);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (!isReady) return;
@@ -18,11 +28,14 @@ export default function FavoritesScreen() {
       router.replace("/login");
       return;
     }
-    getFavorites()
-      .then(setFavorites)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [isReady, isAuthenticated]);
+    load().finally(() => setLoading(false));
+  }, [isReady, isAuthenticated, load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   if (loading) {
     return (
@@ -37,19 +50,20 @@ export default function FavoritesScreen() {
       <Stack.Screen options={{ title: "Saved Businesses" }} />
       <FlatList
         data={favorites}
-        keyExtractor={(item) => item.businessId}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <Pressable
             style={styles.card}
-            onPress={() => router.push(`/business/${item.businessSlug}`)}
+            onPress={() => router.push(`/business/${item.slug}`)}
           >
             <Image
               source={{ uri: item.primaryPhotoUrl || PLACEHOLDER }}
               style={styles.photo}
             />
             <View style={styles.body}>
-              <Text style={styles.name} numberOfLines={1}>{item.businessName}</Text>
+              <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.location} numberOfLines={1}>
                 {[item.city, item.state].filter(Boolean).join(", ") || "Location not listed"}
               </Text>

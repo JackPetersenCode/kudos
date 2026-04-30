@@ -1,4 +1,4 @@
-import { apiFetch, apiUrl } from "./api";
+import { apiFetch, apiFetchOptional, apiUrl } from "./api";
 
 export type SearchResult = {
   id: string;
@@ -49,9 +49,21 @@ export type Review = {
   createdAtUtc: string;
   displayName: string;
   userId: string;
+  userEmail: string | null;
   userReviewCount: number;
   positiveTags: string[];
   photos: { id: string; originalUrl: string }[];
+  isOwnReview: boolean;
+  helpfulCount: number;
+  isMarkedHelpful: boolean;
+  businessResponse: { body: string; createdAtUtc: string } | null;
+  staffRecognitions: {
+    staffMemberId: string;
+    firstName: string;
+    lastName: string;
+    photoUrl: string | null;
+    tags: string[];
+  }[];
 };
 
 export async function autocomplete(query: string): Promise<{ businesses: AutocompleteBusiness[] }> {
@@ -60,14 +72,71 @@ export async function autocomplete(query: string): Promise<{ businesses: Autocom
   return res.json();
 }
 
-export async function searchBusinesses(params: { q?: string; where?: string; pageSize?: number }): Promise<{ results: SearchResult[]; totalCount: number }> {
+export type SearchCityCount = { city: string; count: number };
+export type SearchCategoryCount = { slug: string; name: string; count: number };
+
+export type SearchParams = {
+  q?: string;
+  where?: string;
+  category?: string;
+  city?: string;
+  price?: number;
+  openNow?: boolean;
+  reservations?: boolean;
+  onlineWaitlist?: boolean;
+  delivery?: boolean;
+  takeout?: boolean;
+  outdoorSeating?: boolean;
+  minRating?: number;
+  sort?: string;
+  lat?: number;
+  lng?: number;
+  radiusMiles?: number;
+  page?: number;
+  pageSize?: number;
+};
+
+export type SearchResponse = {
+  results: SearchResult[];
+  cityCounts: SearchCityCount[];
+  categoryCounts: SearchCategoryCount[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function searchBusinesses(params: SearchParams): Promise<SearchResponse> {
   const qs = new URLSearchParams();
-  if (params.q) qs.set("q", params.q);
-  if (params.where) qs.set("where", params.where);
+  if (params.q?.trim()) qs.set("q", params.q.trim());
+  if (params.where?.trim()) qs.set("where", params.where.trim());
+  if (params.category?.trim()) qs.set("category", params.category.trim());
+  if (params.city?.trim()) qs.set("city", params.city.trim());
+  if (params.price) qs.set("price", String(params.price));
+  if (params.openNow) qs.set("openNow", "true");
+  if (params.reservations) qs.set("reservations", "true");
+  if (params.onlineWaitlist) qs.set("onlineWaitlist", "true");
+  if (params.delivery) qs.set("delivery", "true");
+  if (params.takeout) qs.set("takeout", "true");
+  if (params.outdoorSeating) qs.set("outdoorSeating", "true");
+  if (params.minRating) qs.set("minRating", String(params.minRating));
+  if (params.sort) qs.set("sort", params.sort);
+  if (params.lat !== undefined) qs.set("lat", String(params.lat));
+  if (params.lng !== undefined) qs.set("lng", String(params.lng));
+  if (params.radiusMiles) qs.set("radiusMiles", String(params.radiusMiles));
+  if (params.page) qs.set("page", String(params.page));
   qs.set("pageSize", String(params.pageSize ?? 20));
+
   const res = await fetch(apiUrl(`/public/search?${qs}`));
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const data = await res.json();
+  return {
+    results: data.results ?? [],
+    cityCounts: data.cityCounts ?? [],
+    categoryCounts: data.categoryCounts ?? [],
+    totalCount: data.totalCount ?? 0,
+    page: data.page ?? 1,
+    pageSize: data.pageSize ?? 20,
+  };
 }
 
 export async function getBusiness(slug: string): Promise<PublicBusiness> {
@@ -77,8 +146,55 @@ export async function getBusiness(slug: string): Promise<PublicBusiness> {
 }
 
 export async function getBusinessReviews(businessId: string): Promise<{ reviews: Review[]; reviewCount: number }> {
-  const res = await fetch(apiUrl(`/public/business/${businessId}/reviews`));
+  // Uses apiFetch so the JWT (if present) populates isOwnReview / isMarkedHelpful
+  const res = await apiFetchOptional(`/public/business/${businessId}/reviews`);
   if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateBusinessReview(
+  businessId: string,
+  reviewId: string,
+  payload: CreateReviewPayload
+) {
+  const res = await apiFetch(`/public/business/${businessId}/reviews/${reviewId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function deleteBusinessReview(businessId: string, reviewId: string): Promise<void> {
+  await apiFetch(`/public/business/${businessId}/reviews/${reviewId}`, { method: "DELETE" });
+}
+
+export async function flagReview(
+  businessId: string,
+  reviewId: string,
+  payload: { reason: string; details?: string | null }
+) {
+  const res = await apiFetch(`/public/business/${businessId}/reviews/${reviewId}/flag`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function markReviewHelpful(reviewId: string) {
+  const res = await apiFetch(`/reviews/${reviewId}/helpful`, { method: "POST" });
+  return res.json();
+}
+
+export async function unmarkReviewHelpful(reviewId: string) {
+  const res = await apiFetch(`/reviews/${reviewId}/helpful`, { method: "DELETE" });
+  return res.json();
+}
+
+export async function createReviewResponse(businessId: string, reviewId: string, body: string) {
+  const res = await apiFetch(`/business/${businessId}/reviews/${reviewId}/response`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
   return res.json();
 }
 

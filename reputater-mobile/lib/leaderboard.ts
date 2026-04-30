@@ -11,7 +11,7 @@ export type LeaderboardEntry = {
   city: string | null;
   state: string | null;
   kudosCount: number;
-  topTags: string;
+  topTags: string; // JSON-serialized array: [{"tagName":"friendly","count":5}, ...]
 };
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {

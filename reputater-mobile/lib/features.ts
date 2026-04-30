@@ -47,16 +47,36 @@ export async function markNotificationsRead(): Promise<void> {
 }
 
 export type Favorite = {
-  businessId: string;
-  businessName: string;
-  businessSlug: string;
+  id: string;
+  name: string;
+  slug: string;
   city: string | null;
   state: string | null;
+  description: string | null;
   primaryPhotoUrl: string | null;
   favoritedAt: string;
+  averageRating: number;
+  reviewCount: number;
 };
 
 export async function getFavorites(): Promise<Favorite[]> {
   const res = await apiFetch("/favorites");
+  return res.json();
+}
+
+export type FeedItem = {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  createdAtUtc: string;
+  businessName: string;
+  businessSlug: string;
+  reviewerEmail: string;
+  eventType: string;
+};
+
+export async function getActivityFeed(): Promise<FeedItem[]> {
+  const res = await apiFetch("/feed");
   return res.json();
 }
