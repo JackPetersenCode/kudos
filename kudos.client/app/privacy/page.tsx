@@ -8,7 +8,7 @@ export default function PrivacyPolicyPage() {
   return (
     <main className="page-container-medium" style={{ lineHeight: 1.8 }}>
       <h1>Privacy Policy</h1>
-      <p style={{ color: "var(--color-text-secondary)" }}>Last updated: April 24, 2026</p>
+      <p style={{ color: "var(--color-text-secondary)" }}>Last updated: April 30, 2026</p>
       <p style={{ color: "var(--color-text-secondary)" }}>Operated by Petersen Software Solutions LLC</p>
 
       <section>
@@ -60,7 +60,43 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section>
-        <h2>4. Data Retention</h2>
+        <h2>4. SMS Communications</h2>
+        <p>
+          If you provide a business phone number when claiming a business listing on Reputater, you may choose
+          to receive a one-time SMS verification code at that number to confirm ownership. By tapping
+          &quot;Send Code&quot; on the SMS verification step, you affirmatively consent to receive that one-time message.
+        </p>
+        <ul>
+          <li>
+            <strong>Message frequency:</strong> Reputater sends a maximum of one SMS verification code per claim attempt.
+            Codes expire 10 minutes after they are sent. We do not send marketing or recurring messages.
+          </li>
+          <li>
+            <strong>Message and data rates:</strong> Message and data rates may apply. Standard carrier messaging
+            and data rates apply to messages sent to your mobile number.
+          </li>
+          <li>
+            <strong>Mobile information sharing:</strong> Mobile phone numbers and the consent to receive SMS are
+            <strong> not shared with or sold to any third parties for marketing or promotional purposes</strong>.
+            Phone numbers are transmitted only to Twilio, Inc., our SMS service provider, solely to deliver the
+            verification code you requested.
+          </li>
+          <li>
+            <strong>Opt-out:</strong> You may opt out at any time by replying <strong>STOP</strong> to any verification
+            message. After replying STOP you will not receive further SMS from Reputater.
+          </li>
+          <li>
+            <strong>Help:</strong> Reply <strong>HELP</strong> to any message for support information, or email
+            <strong> support@reputater.com</strong>.
+          </li>
+          <li>
+            Carriers are not liable for delayed or undelivered messages.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. Data Retention</h2>
         <p>We retain your account information and content for as long as your account is active. After account deletion:</p>
         <ul>
           <li>Personal identifiers (email, display name) are removed within 30 days</li>
@@ -71,7 +107,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section>
-        <h2>5. Your Rights</h2>
+        <h2>6. Your Rights</h2>
         <h3>All Users</h3>
         <ul>
           <li>Update your display name and profile photo at any time</li>
@@ -106,7 +142,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section>
-        <h2>6. Security</h2>
+        <h2>7. Security</h2>
         <p>We implement industry-standard security measures including:</p>
         <ul>
           <li>Passwords stored using BCrypt one-way hashing</li>
@@ -119,33 +155,33 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section>
-        <h2>7. Cookies and Local Storage</h2>
+        <h2>8. Cookies and Local Storage</h2>
         <p>We use browser localStorage to store your authentication token. We do not use tracking cookies, advertising cookies, or third-party analytics cookies.</p>
         <p>Third-party services embedded in the Service (such as OpenStreetMap map tiles) may set their own cookies. Please refer to their respective privacy policies for details.</p>
       </section>
 
       <section>
-        <h2>8. Children&apos;s Privacy</h2>
+        <h2>9. Children&apos;s Privacy</h2>
         <p>The Service is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have collected personal information from a child under 13, we will take steps to delete that information promptly.</p>
       </section>
 
       <section>
-        <h2>9. International Data Transfers</h2>
+        <h2>10. International Data Transfers</h2>
         <p>Your information may be transferred to and processed in the United States, where our servers are located. By using the Service, you consent to the transfer of your information to the United States and acknowledge that data protection laws in the United States may differ from those in your country.</p>
       </section>
 
       <section>
-        <h2>10. Third-Party Data Sources</h2>
+        <h2>11. Third-Party Data Sources</h2>
         <p>Some business listing data is sourced from OpenStreetMap, which is made available under the Open Database License (ODbL). This data is &copy; OpenStreetMap contributors.</p>
       </section>
 
       <section>
-        <h2>11. Changes to This Policy</h2>
+        <h2>12. Changes to This Policy</h2>
         <p>We may update this Privacy Policy from time to time. We will notify users of material changes by posting the revised policy on this page and updating the &quot;Last updated&quot; date. Your continued use of the Service after the effective date constitutes your acceptance of the revised policy.</p>
       </section>
 
       <section>
-        <h2>12. Contact</h2>
+        <h2>13. Contact</h2>
         <p>For privacy-related questions or to exercise your rights, contact:</p>
         <p>
           Petersen Software Solutions LLC<br />
