@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, TextInput, FlatList, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Modal } from "react-native";
+import { View, TextInput, FlatList, Text, StyleSheet, Pressable, ScrollView, Modal } from "react-native";
 import { router } from "expo-router";
 import BusinessCard from "../../components/BusinessCard";
+import SponsoredBanner from "../../components/SponsoredBanner";
+import { ListSkeleton } from "../../components/Skeleton";
 import { searchBusinesses, SearchResult, SearchCityCount, SearchCategoryCount } from "../../lib/publicBusiness";
 import { colors } from "../../lib/theme";
 
@@ -161,16 +163,25 @@ export default function SearchScreen() {
         </Pressable>
       </View>
 
-      {loading && <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />}
+      {loading && (
+        <View style={{ padding: 16 }}>
+          <ListSkeleton count={3} />
+        </View>
+      )}
 
       <FlatList
         data={results}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16 }}
         ListHeaderComponent={
-          searched && totalCount > 0 ? (
-            <Text style={styles.resultsCount}>{totalCount} result{totalCount === 1 ? "" : "s"}</Text>
-          ) : null
+          <>
+            {searched && (
+              <SponsoredBanner placementSlug="search-sponsored" category={category} city={city} pagePath="/search" />
+            )}
+            {searched && totalCount > 0 ? (
+              <Text style={styles.resultsCount}>{totalCount} result{totalCount === 1 ? "" : "s"}</Text>
+            ) : null}
+          </>
         }
         renderItem={({ item }) => <BusinessCard business={item} />}
         ListEmptyComponent={

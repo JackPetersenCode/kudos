@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Pressable, Image, TextInput, Alert, Modal } from "react-native";
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Pressable, Image, TextInput, Alert, Modal, Share } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -285,6 +285,40 @@ export default function BusinessOwnerDashboard() {
             </View>
           )}
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.h2}>QR Code</Text>
+          <Text style={styles.helper}>
+            Print or display this on a sign, table tent, or receipt. Scanning opens your business page.
+          </Text>
+          {(() => {
+            const url = `https://reputater.com/business/${business.slug}`;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=10&data=${encodeURIComponent(url)}`;
+            return (
+              <>
+                <View style={{ alignItems: "center", marginVertical: 12 }}>
+                  <Image source={{ uri: qrUrl }} style={styles.qrImage} />
+                </View>
+                <Text style={styles.qrUrlText}>{url}</Text>
+                <View style={[styles.actionsRow, { marginTop: 14 }]}>
+                  <Pressable
+                    style={styles.btn}
+                    onPress={() => Share.share({
+                      message: `Scan to leave a review for ${business.name}: ${url}`,
+                      url,
+                      title: business.name,
+                    }).catch(() => {})}
+                  >
+                    <Text style={styles.btnText}>Share Link</Text>
+                  </Pressable>
+                  <Pressable style={styles.btn} onPress={() => Share.share({ url: qrUrl, message: qrUrl }).catch(() => {})}>
+                    <Text style={styles.btnText}>Share QR Image</Text>
+                  </Pressable>
+                </View>
+              </>
+            );
+          })()}
+        </View>
       </ScrollView>
 
       <StaffEditorModal
@@ -518,4 +552,11 @@ const styles = StyleSheet.create({
   seasonalTagText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
   seasonalTagExpiry: { color: colors.textMuted, fontSize: 11, fontWeight: "500" },
   seasonalTagRemove: { color: colors.accent, fontSize: 16, fontWeight: "700", marginLeft: 2 },
+  qrImage: {
+    width: 220, height: 220, backgroundColor: "white",
+    borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+  },
+  qrUrlText: {
+    color: colors.textSecondary, fontSize: 12, textAlign: "center", marginTop: 4,
+  },
 });

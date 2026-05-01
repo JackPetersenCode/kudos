@@ -1,4 +1,52 @@
-import { apiFetch } from "./api";
+import { apiFetch, apiUrl } from "./api";
+
+export type PublicAd = {
+  id: string;
+  businessId: string;
+  businessName: string;
+  businessSlug: string;
+  title: string;
+  headline: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  destinationUrl: string;
+  campaignId: string;
+  placementSlug: string;
+  sponsored: true;
+} | null;
+
+export async function getPublicAd(params: {
+  placementSlug: string;
+  category?: string;
+  city?: string;
+  state?: string;
+}): Promise<PublicAd> {
+  const qs = new URLSearchParams();
+  if (params.category) qs.set("category", params.category);
+  if (params.city) qs.set("city", params.city);
+  if (params.state) qs.set("state", params.state);
+  const res = await fetch(apiUrl(`/public/ads/placement/${encodeURIComponent(params.placementSlug)}?${qs}`));
+  if (!res.ok) return null;
+  const text = await res.text();
+  if (!text || text === "null") return null;
+  return JSON.parse(text);
+}
+
+export async function trackAdImpression(adId: string, placementSlug: string, pagePath?: string) {
+  await fetch(apiUrl(`/public/ads/${adId}/impression`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placementSlug, pagePath }),
+  }).catch(() => {});
+}
+
+export async function trackAdClick(adId: string, placementSlug: string, pagePath?: string) {
+  await fetch(apiUrl(`/public/ads/${adId}/click`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placementSlug, pagePath }),
+  }).catch(() => {});
+}
 
 export type OwnerAd = {
   id: string;
@@ -83,6 +131,52 @@ export type AdCampaign = {
 
 export async function getAdCampaigns(adId: string): Promise<AdCampaign[]> {
   const res = await apiFetch(`/ads/${adId}/campaigns`);
+  return res.json();
+}
+
+export type CampaignDetail = AdCampaign & {
+  businessId: string;
+  businessName: string;
+  businessSlug: string;
+  placementSlugs: string[];
+  targeting: { categorySlug: string | null; city: string | null; state: string | null };
+};
+
+export async function getCampaignDetail(campaignId: string): Promise<CampaignDetail> {
+  const res = await apiFetch(`/ads/campaigns/${campaignId}`);
+  return res.json();
+}
+
+export type CreateCampaignPayload = {
+  startAtUtc: string;
+  endAtUtc: string;
+  budgetCents: number;
+  pricingModel: "cpc" | "cpm" | "flat";
+  bidCents?: number | null;
+  placementSlugs: string[];
+  categorySlug?: string | null;
+  city?: string | null;
+  state?: string | null;
+};
+
+export async function createAdCampaign(adId: string, payload: CreateCampaignPayload) {
+  const res = await apiFetch(`/ads/${adId}/campaigns`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function updateAdCampaign(campaignId: string, payload: CreateCampaignPayload) {
+  const res = await apiFetch(`/ads/campaigns/${campaignId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function toggleAdCampaign(campaignId: string) {
+  const res = await apiFetch(`/ads/campaigns/${campaignId}/toggle`, { method: "POST" });
   return res.json();
 }
 

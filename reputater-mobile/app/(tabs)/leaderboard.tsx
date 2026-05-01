@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { FlatList, View, Text, Image, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, View, Text, Image, StyleSheet, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { getLeaderboard, LeaderboardEntry } from "../../lib/leaderboard";
 import { colors } from "../../lib/theme";
@@ -9,10 +9,22 @@ const RANK_COLORS = ["#ffd700", "#c0c0c0", "#cd7f32"];
 export default function LeaderboardScreen() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    getLeaderboard().then(setEntries).finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    try {
+      const data = await getLeaderboard();
+      setEntries(data);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   if (loading) {
     return <ActivityIndicator color={colors.accent} style={{ marginTop: 32 }} />;
@@ -23,6 +35,7 @@ export default function LeaderboardScreen() {
       data={entries}
       keyExtractor={(item) => item.id}
       contentContainerStyle={{ padding: 16 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       ListHeaderComponent={
         <View style={{ marginBottom: 16 }}>
           <Text style={styles.subtitle}>The most recognized employees ranked by total reviews received.</Text>

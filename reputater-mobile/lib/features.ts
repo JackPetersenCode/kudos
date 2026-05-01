@@ -80,3 +80,23 @@ export async function getActivityFeed(): Promise<FeedItem[]> {
   const res = await apiFetch("/feed");
   return res.json();
 }
+
+export type NotificationPreferences = {
+  emailOnNewReview: boolean;
+  emailOnReviewResponse: boolean;
+  emailOnNewKudos: boolean;
+  emailOnFavoriteActivity: boolean;
+};
+
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  const res = await apiFetch("/profile/notification-preferences");
+  return res.json();
+}
+
+export async function updateNotificationPreferences(prefs: NotificationPreferences): Promise<{ success: boolean }> {
+  const res = await apiFetch("/profile/notification-preferences", {
+    method: "PUT",
+    body: JSON.stringify(prefs),
+  });
+  return res.json();
+}

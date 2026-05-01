@@ -5,7 +5,9 @@ import { useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMe, Me, getProfilePhoto } from "../../lib/auth";
 import { apiUrl } from "../../lib/api";
+import { getUnreadNotificationCount } from "../../lib/features";
 import { getTaterLevel } from "../../lib/taterLevel";
+import { openExternalUrl } from "../../lib/url";
 import { colors } from "../../lib/theme";
 
 type PublicProfile = {
@@ -21,6 +23,7 @@ export default function AccountScreen() {
   const [me, setMe] = useState<Me | null>(null);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const loadAccount = useCallback(async () => {
@@ -36,6 +39,10 @@ export default function AccountScreen() {
       try {
         const p = await getProfilePhoto();
         setPhotoUrl(p?.originalUrl ?? null);
+      } catch { /* ignore */ }
+      try {
+        const u = await getUnreadNotificationCount();
+        setUnreadCount(u.unreadCount);
       } catch { /* ignore */ }
     } catch { /* ignore */ } finally {
       setLoading(false);
@@ -143,7 +150,14 @@ export default function AccountScreen() {
           onPress={() => router.push("/notifications")}
         >
           <Text style={styles.menuLabel}>🔔  Notifications</Text>
-          <Text style={styles.menuArrow}>›</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+              </View>
+            )}
+            <Text style={styles.menuArrow}>›</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -173,11 +187,38 @@ export default function AccountScreen() {
           <Text style={styles.menuLabel}>⚙️  Edit Profile</Text>
           <Text style={styles.menuArrow}>›</Text>
         </Pressable>
+        <View style={styles.menuDivider} />
+        <Pressable
+          style={styles.menuItem}
+          onPress={() => router.push("/notification-preferences")}
+        >
+          <Text style={styles.menuLabel}>📧  Email Notifications</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </Pressable>
       </View>
 
       <Pressable style={[styles.btnSecondary, { marginHorizontal: 24, marginTop: 16 }]} onPress={signOut}>
         <Text style={styles.btnSecondaryText}>Sign out</Text>
       </Pressable>
+
+      <View style={styles.legalRow}>
+        <Pressable onPress={() => openExternalUrl("https://reputater.com/terms")}>
+          <Text style={styles.legalLink}>Terms</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable onPress={() => openExternalUrl("https://reputater.com/privacy")}>
+          <Text style={styles.legalLink}>Privacy</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable onPress={() => openExternalUrl("https://reputater.com/sms-consent")}>
+          <Text style={styles.legalLink}>SMS Consent</Text>
+        </Pressable>
+        <Text style={styles.legalDot}>·</Text>
+        <Pressable onPress={() => openExternalUrl("https://reputater.com/dmca")}>
+          <Text style={styles.legalLink}>DMCA</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.versionText}>Reputater · v1.0.0</Text>
     </ScrollView>
   );
 }
@@ -230,4 +271,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   btnSecondaryText: { color: colors.text, fontWeight: "600", fontSize: 15 },
+  badge: {
+    minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11,
+    backgroundColor: colors.danger, alignItems: "center", justifyContent: "center",
+  },
+  badgeText: { color: "white", fontSize: 11, fontWeight: "800" },
+  legalRow: {
+    flexDirection: "row", justifyContent: "center", alignItems: "center",
+    flexWrap: "wrap", gap: 8, marginTop: 24, paddingHorizontal: 24,
+  },
+  legalLink: { color: colors.textMuted, fontSize: 12, fontWeight: "500" },
+  legalDot: { color: colors.textMuted, fontSize: 12 },
+  versionText: {
+    textAlign: "center", color: colors.textMuted, fontSize: 11, marginTop: 8, marginBottom: 24,
+  },
 });

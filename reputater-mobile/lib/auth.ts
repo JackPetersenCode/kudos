@@ -87,6 +87,14 @@ export async function forgotPassword(email: string): Promise<{ message: string }
   return res.json();
 }
 
+export async function verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+  const res = await apiFetch("/Auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+  return res.json();
+}
+
 export async function resetPassword(token: string, password: string): Promise<{ success: boolean; message: string }> {
   const res = await apiFetch("/Auth/reset-password", {
     method: "POST",

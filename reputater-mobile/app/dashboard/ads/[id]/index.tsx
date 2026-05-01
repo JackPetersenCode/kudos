@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Image, Pressable, Alert } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { getMyAd, getAdCampaigns, getAdPerformance, deleteAd, resubmitAd, OwnerAd, AdCampaign, AdPerformance } from "../../../../lib/ads";
+import { getMyAd, getAdCampaigns, getAdPerformance, deleteAd, resubmitAd, toggleAdCampaign, OwnerAd, AdCampaign, AdPerformance } from "../../../../lib/ads";
 import { openExternalUrl } from "../../../../lib/url";
+import BarChart from "../../../../components/BarChart";
 import { colors } from "../../../../lib/theme";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
@@ -143,14 +144,69 @@ export default function AdDetailScreen() {
               <Stat label="Budget" value={`$${(perf.budgetCents / 100).toFixed(2)}`} />
               <Stat label="Remaining" value={`$${(perf.remainingCents / 100).toFixed(2)}`} />
             </View>
+
+            {(() => {
+              const days = Array.from(new Set(perf.byDay.map((r) => r.day))).sort();
+              const impressions = days.map((d) => ({
+                key: d,
+                value: perf.byDay.find((r) => r.day === d && r.eventType === "impression")?.count ?? 0,
+              }));
+              const clicks = days.map((d) => ({
+                key: d,
+                value: perf.byDay.find((r) => r.day === d && r.eventType === "click")?.count ?? 0,
+              }));
+              return (
+                <View style={{ marginTop: 16 }}>
+                  <Text style={styles.subsectionTitle}>Last 30 days</Text>
+                  <BarChart
+                    labels={days.map((d) => d.slice(5))}
+                    series={[
+                      { label: "Impressions", values: impressions.map((x, i) => ({ key: days[i].slice(5), value: x.value })), color: colors.accent },
+                      { label: "Clicks", values: clicks.map((x, i) => ({ key: days[i].slice(5), value: x.value })), color: colors.primary },
+                    ]}
+                    emptyText="No traffic in the last 30 days."
+                  />
+                </View>
+              );
+            })()}
+
+            {(() => {
+              const placements = Array.from(new Set(perf.byPlacement.map((r) => r.placementSlug)));
+              const impressions = placements.map((p) => ({
+                key: p,
+                value: perf.byPlacement.find((r) => r.placementSlug === p && r.eventType === "impression")?.count ?? 0,
+              }));
+              const clicks = placements.map((p) => ({
+                key: p,
+                value: perf.byPlacement.find((r) => r.placementSlug === p && r.eventType === "click")?.count ?? 0,
+              }));
+              return (
+                <View style={{ marginTop: 20 }}>
+                  <Text style={styles.subsectionTitle}>By placement</Text>
+                  <BarChart
+                    labels={placements}
+                    series={[
+                      { label: "Impressions", values: impressions, color: colors.accent },
+                      { label: "Clicks", values: clicks, color: colors.primary },
+                    ]}
+                    emptyText="No placement data yet."
+                  />
+                </View>
+              );
+            })()}
           </View>
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Campaigns ({campaigns.length})</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Campaigns ({campaigns.length})</Text>
+            <Pressable style={styles.btn} onPress={() => router.push(`/dashboard/ads/${ad.id}/campaign`)}>
+              <Text style={styles.btnText}>+ New</Text>
+            </Pressable>
+          </View>
           {campaigns.length === 0 ? (
             <Text style={styles.empty}>
-              No campaigns yet. Create a campaign on the web at reputater.com to set budget and start running this ad.
+              No campaigns yet. Create one to start running this ad. Payment is completed on reputater.com.
             </Text>
           ) : (
             campaigns.map((c) => (
@@ -160,8 +216,32 @@ export default function AdDetailScreen() {
                     {new Date(c.startAtUtc).toLocaleDateString()} – {new Date(c.endAtUtc).toLocaleDateString()}
                   </Text>
                   <Text style={styles.campaignMeta}>
-                    Budget ${(c.budgetCents / 100).toFixed(0)} · {c.pricingModel}
+                    Budget ${(c.budgetCents / 100).toFixed(0)} · {c.pricingModel.toUpperCase()}
                   </Text>
+                  <View style={{ flexDirection: "row", gap: 14, marginTop: 8 }}>
+                    <Pressable
+                      onPress={() => router.push(`/dashboard/ads/${ad.id}/campaign?campaignId=${c.id}`)}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.linkText}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        try {
+                          await toggleAdCampaign(c.id);
+                          // Optimistic toggle
+                          setCampaigns((prev) =>
+                            prev.map((x) => (x.id === c.id ? { ...x, isActive: !x.isActive } : x))
+                          );
+                        } catch (e: any) {
+                          Alert.alert("Couldn't toggle", e?.message || "Try again");
+                        }
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.linkText}>{c.isActive ? "Pause" : "Resume"}</Text>
+                    </Pressable>
+                  </View>
                 </View>
                 <Text style={[styles.statusBadge, c.isActive
                   ? { backgroundColor: "#dcfce7", color: colors.success }
@@ -172,9 +252,6 @@ export default function AdDetailScreen() {
               </View>
             ))
           )}
-          <Text style={styles.helperLink}>
-            For new campaigns, budget changes, and payment, visit reputater.com.
-          </Text>
         </View>
       </ScrollView>
     </>
@@ -227,4 +304,6 @@ const styles = StyleSheet.create({
   campaignDates: { fontWeight: "700", color: colors.text, fontSize: 13 },
   campaignMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   helperLink: { fontSize: 12, color: colors.textMuted, marginTop: 12, fontStyle: "italic" },
+  linkText: { color: colors.accent, fontWeight: "600", fontSize: 13 },
+  subsectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 8 },
 });

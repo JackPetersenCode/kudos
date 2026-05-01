@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, View, Image, ActivityIndicator, StyleSheet, Linking, Pressable, Platform, Alert, Modal, TextInput } from "react-native";
+import { ScrollView, Text, View, Image, ActivityIndicator, StyleSheet, Linking, Pressable, Platform, Alert, Modal, TextInput, Share } from "react-native";
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import {
   getBusiness, getBusinessReviews, getBusinessPhotos, PublicBusiness, Review,
@@ -9,9 +9,11 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getTaterLevel } from "../../lib/taterLevel";
 import { addFavorite, removeFavorite, getFavoriteStatus, checkIn, getCheckInCount } from "../../lib/features";
 import { getStaffMembers, StaffMember } from "../../lib/staff";
-import { getOwnedBusinesses, getSeasonalTags, SeasonalTag } from "../../lib/businessOwner";
+import { getOwnedBusinesses, getSeasonalTags, SeasonalTag, getBusinessHours, BusinessHours } from "../../lib/businessOwner";
 import { openExternalUrl } from "../../lib/url";
 import StaffSection from "../../components/StaffSection";
+import SponsoredBanner from "../../components/SponsoredBanner";
+import PhotoLightbox from "../../components/PhotoLightbox";
 import { colors } from "../../lib/theme";
 
 const FLAG_REASONS = [
@@ -35,7 +37,9 @@ export default function BusinessDetailScreen() {
   const [checkInCount, setCheckInCount] = useState(0);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [seasonalTags, setSeasonalTags] = useState<SeasonalTag[]>([]);
+  const [hours, setHours] = useState<BusinessHours[]>([]);
   const [isOwner, setIsOwner] = useState(false);
+  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
   const [flagModal, setFlagModal] = useState<{ open: boolean; reviewId: string | null }>({ open: false, reviewId: null });
   const [responseModal, setResponseModal] = useState<{ open: boolean; reviewId: string | null }>({ open: false, reviewId: null });
 
@@ -53,18 +57,20 @@ export default function BusinessDetailScreen() {
       try {
         const biz = await getBusiness(slug);
         setBusiness(biz);
-        const [reviewData, photoData, checkinData, staffData, tagData] = await Promise.all([
+        const [reviewData, photoData, checkinData, staffData, tagData, hoursData] = await Promise.all([
           getBusinessReviews(biz.id).catch(() => ({ reviews: [], reviewCount: 0 })),
           getBusinessPhotos(biz.id).catch(() => []),
           getCheckInCount(biz.id).catch(() => ({ totalCheckIns: 0, uniqueUsers: 0 })),
           getStaffMembers(biz.id).catch(() => [] as StaffMember[]),
           getSeasonalTags(biz.id).catch(() => [] as SeasonalTag[]),
+          getBusinessHours(biz.id).catch(() => [] as BusinessHours[]),
         ]);
         setReviews(reviewData.reviews);
         setPhotos(photoData);
         setCheckInCount(checkinData.totalCheckIns);
         setStaff(staffData);
         setSeasonalTags(tagData);
+        setHours(hoursData);
       } finally {
         setLoading(false);
       }
@@ -163,7 +169,12 @@ export default function BusinessDetailScreen() {
     <>
       <Stack.Screen options={{ title: business.name }} />
       <ScrollView style={{ flex: 1, backgroundColor: colors.bg }}>
-        <Image source={{ uri: photoUrl }} style={styles.heroPhoto} />
+        <Pressable
+          onPress={() => photos.length > 0 && setLightbox({ open: true, index: 0 })}
+          disabled={photos.length === 0}
+        >
+          <Image source={{ uri: photoUrl }} style={styles.heroPhoto} />
+        </Pressable>
 
         <View style={styles.section}>
           <View style={styles.titleRow}>
@@ -248,7 +259,25 @@ export default function BusinessDetailScreen() {
             >
               <Text style={styles.actionBtnText}>📍 Check In{checkInCount > 0 ? ` · ${checkInCount}` : ""}</Text>
             </Pressable>
+
+            <Pressable
+              style={styles.actionBtn}
+              onPress={async () => {
+                if (!business) return;
+                try {
+                  await Share.share({
+                    message: `${business.name} on Reputater: https://reputater.com/business/${business.slug}`,
+                    url: `https://reputater.com/business/${business.slug}`,
+                    title: business.name,
+                  });
+                } catch { /* ignore */ }
+              }}
+            >
+              <Text style={styles.actionBtnText}>↗ Share</Text>
+            </Pressable>
           </View>
+
+          {hours.length > 0 && <BusinessHoursDisplay hours={hours} />}
 
           <Pressable
             style={styles.reviewBtn}
@@ -281,12 +310,23 @@ export default function BusinessDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Photos</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-              {photos.slice(0, 10).map((p) => (
-                <Image key={p.id} source={{ uri: p.originalUrl }} style={styles.thumb} />
+              {photos.slice(0, 10).map((p, idx) => (
+                <Pressable key={p.id} onPress={() => setLightbox({ open: true, index: idx })}>
+                  <Image source={{ uri: p.originalUrl }} style={styles.thumb} />
+                </Pressable>
               ))}
             </ScrollView>
           </View>
         )}
+
+        <View style={{ paddingHorizontal: 16 }}>
+          <SponsoredBanner
+            placementSlug="business-detail"
+            city={business.city ?? undefined}
+            state={business.state ?? undefined}
+            pagePath={`/business/${slug}`}
+          />
+        </View>
 
         <StaffSection staff={staff} />
 
@@ -378,6 +418,13 @@ export default function BusinessDetailScreen() {
         }}
       />
 
+      <PhotoLightbox
+        visible={lightbox.open}
+        photos={photos}
+        initialIndex={lightbox.index}
+        onClose={() => setLightbox({ open: false, index: 0 })}
+      />
+
       <ResponseModal
         open={responseModal.open}
         onClose={() => setResponseModal({ open: false, reviewId: null })}
@@ -393,6 +440,40 @@ export default function BusinessDetailScreen() {
         }}
       />
     </>
+  );
+}
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function formatTime(t: string | null): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  if (Number.isNaN(h)) return t;
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+function BusinessHoursDisplay({ hours }: { hours: BusinessHours[] }) {
+  const today = new Date().getDay();
+  const sorted = [...hours].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+  return (
+    <View style={styles.hoursBox}>
+      <Text style={styles.hoursTitle}>Hours</Text>
+      {sorted.map((h) => {
+        const isToday = h.dayOfWeek === today;
+        return (
+          <View key={h.dayOfWeek} style={styles.hoursRow}>
+            <Text style={[styles.hoursDay, isToday && styles.hoursToday]}>
+              {DAY_NAMES[h.dayOfWeek]}
+            </Text>
+            <Text style={[styles.hoursTime, isToday && styles.hoursToday]}>
+              {h.isClosed ? "Closed" : `${formatTime(h.openTime)} – ${formatTime(h.closeTime)}`}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -618,4 +699,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fef9eb", paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: 999, overflow: "hidden",
   },
+  hoursBox: {
+    marginTop: 16, padding: 14, borderRadius: 10,
+    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border,
+  },
+  hoursTitle: { fontWeight: "700", color: colors.text, fontSize: 14, marginBottom: 8 },
+  hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  hoursDay: { color: colors.textSecondary, fontSize: 13 },
+  hoursTime: { color: colors.textSecondary, fontSize: 13 },
+  hoursToday: { color: colors.text, fontWeight: "700" },
 });

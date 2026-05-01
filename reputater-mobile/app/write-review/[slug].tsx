@@ -39,6 +39,8 @@ export default function WriteReviewScreen() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [photos, setPhotos] = useState<StagedPhoto[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<{ id: string; originalUrl: string }[]>([]);
+  const [deletePhotoIds, setDeletePhotoIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffRecognitions, setStaffRecognitions] = useState<Record<string, string[]>>({});
@@ -65,6 +67,7 @@ export default function WriteReviewScreen() {
             setSelectedTags(existing.positiveTags);
             setTitle(existing.title ?? "");
             setBody(existing.body ?? "");
+            setExistingPhotos(existing.photos);
             const recognitions: Record<string, string[]> = {};
             for (const sr of existing.staffRecognitions) {
               recognitions[sr.staffMemberId] = sr.tags;
@@ -147,6 +150,7 @@ export default function WriteReviewScreen() {
         positiveTags: selectedTags,
         photos: uploaded,
         staffRecognitions: staffPayload,
+        deletePhotoIds: isEditing && deletePhotoIds.length > 0 ? deletePhotoIds : undefined,
       };
       if (isEditing && reviewId) {
         await updateBusinessReview(business.id, reviewId, payload);
@@ -285,6 +289,27 @@ export default function WriteReviewScreen() {
 
           <Text style={styles.section}>Photos (up to 5)</Text>
           <View style={styles.photoRow}>
+            {existingPhotos.map((p) => {
+              const markedForDelete = deletePhotoIds.includes(p.id);
+              return (
+                <View key={p.id} style={styles.photoWrap}>
+                  <Image
+                    source={{ uri: p.originalUrl }}
+                    style={[styles.photo, markedForDelete && { opacity: 0.3 }]}
+                  />
+                  <Pressable
+                    onPress={() =>
+                      setDeletePhotoIds((prev) =>
+                        markedForDelete ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                      )
+                    }
+                    style={styles.photoRemove}
+                  >
+                    <Text style={styles.photoRemoveText}>{markedForDelete ? "↺" : "×"}</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
             {photos.map((p, i) => (
               <View key={p.uri} style={styles.photoWrap}>
                 <Image source={{ uri: p.uri }} style={styles.photo} />
