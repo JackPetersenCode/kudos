@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
   createAdCampaign, updateAdCampaign, getCampaignDetail, CreateCampaignPayload,
@@ -117,8 +118,19 @@ export default function CampaignEditorScreen() {
         isEditing ? "Campaign updated" : "Campaign created",
         isEditing
           ? "Your changes are live."
-          : "To complete payment, visit reputater.com/dashboard/ads on a desktop browser. Your campaign will start serving once payment clears.",
-        [{ text: "OK", onPress: () => router.back() }]
+          : "Complete payment to start serving this ad.",
+        isEditing
+          ? [{ text: "OK", onPress: () => router.back() }]
+          : [
+              {
+                text: "Pay now",
+                onPress: async () => {
+                  await WebBrowser.openBrowserAsync(`https://reputater.com/dashboard/ads/${adId}`);
+                  router.back();
+                },
+              },
+              { text: "Pay later", onPress: () => router.back(), style: "cancel" },
+            ]
       );
     } catch (e: any) {
       Alert.alert("Couldn't save", e?.message || "Try again");

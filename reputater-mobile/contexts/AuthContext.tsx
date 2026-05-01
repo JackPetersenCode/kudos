@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as authLib from "../lib/auth";
+import { setupPushNotifications } from "../lib/pushNotifications";
 
 type AuthState = {
   token: string | null;
@@ -26,7 +27,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     SecureStore.getItemAsync("token")
-      .then((t) => setToken(t))
+      .then((t) => {
+        setToken(t);
+        if (t) setupPushNotifications().catch(() => {});
+      })
       .catch(() => {})
       .finally(() => setIsReady(true));
   }, []);
@@ -39,11 +43,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isReady,
         signIn: async (email, password) => {
           const data = await authLib.login(email, password);
-          if (data?.token) setToken(data.token);
+          if (data?.token) {
+            setToken(data.token);
+            setupPushNotifications().catch(() => {});
+          }
         },
         signUp: async (email, password) => {
           const data = await authLib.register(email, password);
-          if (data?.token) setToken(data.token);
+          if (data?.token) {
+            setToken(data.token);
+            setupPushNotifications().catch(() => {});
+          }
         },
         signOut: async () => {
           await authLib.logout();

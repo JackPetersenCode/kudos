@@ -14,6 +14,7 @@ import { openExternalUrl } from "../../lib/url";
 import StaffSection from "../../components/StaffSection";
 import SponsoredBanner from "../../components/SponsoredBanner";
 import PhotoLightbox from "../../components/PhotoLightbox";
+import BusinessLocationMap from "../../components/BusinessLocationMap";
 import { colors } from "../../lib/theme";
 
 const FLAG_REASONS = [
@@ -276,6 +277,15 @@ export default function BusinessDetailScreen() {
               <Text style={styles.actionBtnText}>↗ Share</Text>
             </Pressable>
           </View>
+
+          {business.latitude != null && business.longitude != null && (
+            <BusinessLocationMap
+              latitude={Number(business.latitude)}
+              longitude={Number(business.longitude)}
+              title={business.name}
+              description={business.address1 ?? undefined}
+            />
+          )}
 
           {hours.length > 0 && <BusinessHoursDisplay hours={hours} />}
 

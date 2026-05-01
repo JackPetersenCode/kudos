@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Image, Pressable, Alert } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { getMyAd, getAdCampaigns, getAdPerformance, deleteAd, resubmitAd, toggleAdCampaign, OwnerAd, AdCampaign, AdPerformance } from "../../../../lib/ads";
 import { openExternalUrl } from "../../../../lib/url";
@@ -252,6 +253,15 @@ export default function AdDetailScreen() {
               </View>
             ))
           )}
+
+          {campaigns.length > 0 && (
+            <Pressable
+              style={styles.payBtn}
+              onPress={() => WebBrowser.openBrowserAsync(`https://reputater.com/dashboard/ads/${ad.id}`)}
+            >
+              <Text style={styles.payBtnText}>💳  Complete payment on web</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </>
@@ -306,4 +316,9 @@ const styles = StyleSheet.create({
   helperLink: { fontSize: 12, color: colors.textMuted, marginTop: 12, fontStyle: "italic" },
   linkText: { color: colors.accent, fontWeight: "600", fontSize: 13 },
   subsectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 8 },
+  payBtn: {
+    marginTop: 12, paddingVertical: 12, borderRadius: 999,
+    backgroundColor: "#fef9eb", borderWidth: 1, borderColor: colors.accent, alignItems: "center",
+  },
+  payBtnText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
 });

@@ -300,8 +300,102 @@ public class ProfileController : ControllerBase
             return StatusCode(500, new
             {
                 message = ex.Message,
-                
+
             });
         }
     }
+
+    [HttpPost("push-token")]
+    [Authorize]
+    public async Task<IActionResult> RegisterPushToken([FromBody] PushTokenRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+                return BadRequest("Token is required.");
+
+            var email =
+                User.FindFirst(ClaimTypes.Email)?.Value ??
+                User.FindFirst(ClaimTypes.Name)?.Value ??
+                User.Identity?.Name;
+
+            if (string.IsNullOrWhiteSpace(email))
+                return Unauthorized();
+
+            var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            Guid userId;
+            await using (var userCmd = new NpgsqlCommand("SELECT id FROM users WHERE email = @email LIMIT 1;", connection))
+            {
+                userCmd.Parameters.AddWithValue("@email", email);
+                var result = await userCmd.ExecuteScalarAsync();
+                if (result == null) return NotFound("User not found.");
+                userId = (Guid)result;
+            }
+
+            // Upsert by token: a token may move between users (rare but possible if a phone is sold)
+            var sql = """
+                INSERT INTO device_tokens (id, user_id, token, platform, device_name, created_at_utc, last_seen_at_utc)
+                VALUES (@id, @user_id, @token, @platform, @device_name, @now, @now)
+                ON CONFLICT (token) DO UPDATE SET
+                  user_id = @user_id,
+                  platform = @platform,
+                  device_name = @device_name,
+                  last_seen_at_utc = @now;
+                """;
+
+            await using var cmd = new NpgsqlCommand(sql, connection);
+            cmd.Parameters.AddWithValue("@id", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("@user_id", userId);
+            cmd.Parameters.AddWithValue("@token", request.Token);
+            cmd.Parameters.AddWithValue("@platform", request.Platform ?? "unknown");
+            cmd.Parameters.AddWithValue("@device_name", (object?)request.DeviceName ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            await cmd.ExecuteNonQueryAsync();
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("push-token")]
+    [Authorize]
+    public async Task<IActionResult> UnregisterPushToken([FromBody] PushTokenDeleteRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+                return BadRequest("Token is required.");
+
+            var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            await using var cmd = new NpgsqlCommand("DELETE FROM device_tokens WHERE token = @token;", connection);
+            cmd.Parameters.AddWithValue("@token", request.Token);
+            await cmd.ExecuteNonQueryAsync();
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+}
+
+public class PushTokenRequest
+{
+    public string Token { get; set; } = "";
+    public string? Platform { get; set; }
+    public string? DeviceName { get; set; }
+}
+
+public class PushTokenDeleteRequest
+{
+    public string Token { get; set; } = "";
 }

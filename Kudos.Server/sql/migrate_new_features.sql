@@ -299,3 +299,16 @@ CREATE TABLE IF NOT EXISTS review_flags (
 );
 CREATE INDEX IF NOT EXISTS idx_review_flags_review_id ON review_flags(review_id);
 CREATE INDEX IF NOT EXISTS idx_review_flags_status ON review_flags(status);
+
+-- Device tokens for push notifications (Expo push tokens)
+CREATE TABLE IF NOT EXISTS device_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token text NOT NULL,
+  platform text NOT NULL,
+  device_name text,
+  created_at_utc timestamptz NOT NULL DEFAULT now(),
+  last_seen_at_utc timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(token)
+);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user_id ON device_tokens(user_id);

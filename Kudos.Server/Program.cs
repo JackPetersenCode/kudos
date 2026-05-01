@@ -119,6 +119,7 @@ builder.Services.AddRateLimiter(options =>
 });
 builder.Services.AddSingleton<OpenAIService>();
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpClient<PushNotificationService>();
 builder.Services.AddScoped<YelpImportService>();
 builder.Services.AddScoped<YelpDatasetImportService>();
 builder.Services.AddScoped<OpenStreetMapImportService>();

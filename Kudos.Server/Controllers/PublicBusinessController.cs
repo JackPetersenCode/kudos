@@ -16,6 +16,7 @@ namespace Kudos.Server.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly OpenAIService _openAi;
+        private readonly PushNotificationService _push;
         private readonly IAmazonS3 _s3;
         private readonly CloudflareR2Options _r2;
 
@@ -24,12 +25,14 @@ namespace Kudos.Server.Controllers
         public PublicBusinessController(
             IConfiguration configuration,
             OpenAIService openAi,
+            PushNotificationService push,
             IAmazonS3 s3,
             IOptions<CloudflareR2Options> r2Options,
             ILogger<PublicBusinessController> logger)
         {
             _configuration = configuration;
             _openAi = openAi;
+            _push = push;
             _s3 = s3;
             _r2 = r2Options.Value;
             _logger = logger;
@@ -879,12 +882,12 @@ namespace Kudos.Server.Controllers
                     }
                 }
 
-                // Queue notification for business owners
+                // Queue notification for business owners (and fan out push)
                 try
                 {
                     var notifySql = """
                         INSERT INTO notifications (id, user_id, notification_type, subject, body, created_at_utc)
-                        SELECT @notif_id, bm.user_id, 'new_review',
+                        SELECT gen_random_uuid(), bm.user_id, 'new_review',
                                'New review on your business',
                                'A new ' || @rating_text || '-star review was posted.',
                                @created_at
@@ -894,16 +897,34 @@ namespace Kudos.Server.Controllers
                           AND EXISTS (
                               SELECT 1 FROM notification_preferences np
                               WHERE np.user_id = bm.user_id AND np.email_on_new_review = TRUE
-                          );
+                          )
+                        RETURNING user_id;
                         """;
 
                     await using var notifyCmd = new NpgsqlCommand(notifySql, connection);
-                    notifyCmd.Parameters.AddWithValue("@notif_id", Guid.NewGuid());
                     notifyCmd.Parameters.AddWithValue("@business_id", businessId);
                     notifyCmd.Parameters.AddWithValue("@reviewer_user_id", userId);
                     notifyCmd.Parameters.AddWithValue("@rating_text", request.Rating.ToString());
                     notifyCmd.Parameters.AddWithValue("@created_at", DateTime.UtcNow);
-                    await notifyCmd.ExecuteNonQueryAsync();
+
+                    var notifiedUserIds = new List<Guid>();
+                    await using (var notifyReader = await notifyCmd.ExecuteReaderAsync())
+                    {
+                        while (await notifyReader.ReadAsync())
+                        {
+                            notifiedUserIds.Add(notifyReader.GetGuid(0));
+                        }
+                    }
+
+                    // Fire-and-forget push fan-out (doesn't block the review post)
+                    foreach (var notifiedUserId in notifiedUserIds)
+                    {
+                        _ = _push.SendToUserAsync(
+                            notifiedUserId,
+                            "New review on your business",
+                            $"A new {request.Rating}-star review was posted.",
+                            new { type = "new_review", businessId });
+                    }
                 }
                 catch
                 {

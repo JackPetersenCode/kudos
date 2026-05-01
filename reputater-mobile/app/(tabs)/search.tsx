@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import BusinessCard from "../../components/BusinessCard";
 import SponsoredBanner from "../../components/SponsoredBanner";
 import { ListSkeleton } from "../../components/Skeleton";
+import { useGeolocation } from "../../hooks/useGeolocation";
 import { searchBusinesses, SearchResult, SearchCityCount, SearchCategoryCount } from "../../lib/publicBusiness";
 import { colors } from "../../lib/theme";
 
@@ -51,6 +52,7 @@ const FEATURE_FILTERS = [
 type FeatureKey = typeof FEATURE_FILTERS[number]["key"];
 
 export default function SearchScreen() {
+  const geo = useGeolocation(false); // ask only when user opts in
   const [query, setQuery] = useState("");
   const [where, setWhere] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -89,11 +91,15 @@ export default function SearchScreen() {
     return n;
   }, [city, category, price, minRating, radiusMiles, sortBy, features]);
 
+  // Use geolocation only when there's no explicit "where" / city filter
+  const useGeo = geo.lat != null && geo.lng != null && !where.trim() && !city.trim();
+
   useEffect(() => {
     const timer = setTimeout(async () => {
       const noQuery = !query.trim() && !where.trim();
       const noFilters = activeFilterCount === 0;
-      if (noQuery && noFilters) {
+      const noGeo = !useGeo;
+      if (noQuery && noFilters && noGeo) {
         setResults([]);
         setCityCounts([]);
         setCategoryCounts([]);
@@ -110,7 +116,9 @@ export default function SearchScreen() {
           price: price ? Number(price) : undefined,
           minRating: minRating ? Number(minRating) : undefined,
           radiusMiles: radiusMiles ? Number(radiusMiles) : undefined,
-          sort: sortBy || undefined,
+          sort: sortBy || (useGeo ? "distance" : undefined),
+          lat: useGeo ? geo.lat ?? undefined : undefined,
+          lng: useGeo ? geo.lng ?? undefined : undefined,
           openNow: features.openNow,
           reservations: features.reservations,
           onlineWaitlist: features.onlineWaitlist,
@@ -132,7 +140,7 @@ export default function SearchScreen() {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [query, where, city, category, price, minRating, radiusMiles, sortBy, features, activeFilterCount]);
+  }, [query, where, city, category, price, minRating, radiusMiles, sortBy, features, activeFilterCount, useGeo, geo.lat, geo.lng]);
 
   const clearFilters = () => {
     setCity(""); setCategory(""); setPrice(""); setMinRating(""); setRadiusMiles(""); setSortBy("");
@@ -156,11 +164,22 @@ export default function SearchScreen() {
           onChangeText={setWhere}
           style={[styles.input, { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)" }]}
         />
-        <Pressable style={styles.filterBtn} onPress={() => setFiltersOpen(true)}>
-          <Text style={styles.filterBtnText}>
-            🎚 Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable style={styles.filterBtn} onPress={() => setFiltersOpen(true)}>
+            <Text style={styles.filterBtnText}>
+              🎚 Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterBtn, useGeo && styles.filterBtnActive]}
+            onPress={() => geo.requestLocation()}
+            disabled={geo.loading}
+          >
+            <Text style={styles.filterBtnText}>
+              {geo.loading ? "📍 …" : useGeo ? "📍 Near me" : "📍 Use my location"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {loading && (
@@ -315,6 +334,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
+  filterBtnActive: { backgroundColor: colors.accent },
   filterBtnText: { color: "white", fontWeight: "600", fontSize: 13 },
   resultsCount: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   empty: { textAlign: "center", color: colors.textMuted, marginTop: 32 },
