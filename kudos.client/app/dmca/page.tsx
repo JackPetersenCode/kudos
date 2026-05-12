@@ -13,7 +13,7 @@ export default function DMCAPage() {
       <section>
         <h2>Reporting Copyright Infringement</h2>
         <p>
-          Petersen Software Solutions LLC (&quot;Reputater&quot;) respects the intellectual property rights of others
+          Mama Dog LLC (&quot;Reputater&quot;) respects the intellectual property rights of others
           and expects our users to do the same. In accordance with the Digital Millennium Copyright Act of 1998
           (&quot;DMCA&quot;), we will respond promptly to claims of copyright infringement committed using our Service.
         </p>
@@ -36,7 +36,7 @@ export default function DMCAPage() {
         <h2>Designated Agent</h2>
         <p>
           Send DMCA notices to our designated agent:<br /><br />
-          Petersen Software Solutions LLC<br />
+          Mama Dog LLC<br />
           Attn: DMCA Agent<br />
           Email: <strong>dmca@reputater.com</strong>
         </p>

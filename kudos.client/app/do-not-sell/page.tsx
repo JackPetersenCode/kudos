@@ -14,7 +14,7 @@ export default function DoNotSellPage() {
       <section>
         <h2>We Do Not Sell Your Data</h2>
         <p>
-          Petersen Software Solutions LLC (&quot;Reputater&quot;) does not sell, rent, or trade your personal
+          Mama Dog LLC (&quot;Reputater&quot;) does not sell, rent, or trade your personal
           information to third parties for monetary or other valuable consideration.
         </p>
         <p>
@@ -54,7 +54,7 @@ export default function DoNotSellPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          Petersen Software Solutions LLC<br />
+          Mama Dog LLC<br />
           Email: privacy@reputater.com
         </p>
       </section>

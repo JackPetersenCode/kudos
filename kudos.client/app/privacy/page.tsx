@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
     <main className="page-container-medium" style={{ lineHeight: 1.8 }}>
       <h1>Privacy Policy</h1>
       <p style={{ color: "var(--color-text-secondary)" }}>Last updated: April 30, 2026</p>
-      <p style={{ color: "var(--color-text-secondary)" }}>Operated by Petersen Software Solutions LLC</p>
+      <p style={{ color: "var(--color-text-secondary)" }}>Operated by Mama Dog LLC</p>
 
       <section>
         <h2>1. Information We Collect</h2>
@@ -184,7 +184,7 @@ export default function PrivacyPolicyPage() {
         <h2>13. Contact</h2>
         <p>For privacy-related questions or to exercise your rights, contact:</p>
         <p>
-          Petersen Software Solutions LLC<br />
+          Mama Dog LLC<br />
           Email: privacy@reputater.com
         </p>
       </section>

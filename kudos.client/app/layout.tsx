@@ -47,7 +47,7 @@ export default function RootLayout({
               <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 8 }}>
                 Some business data © <a href="https://www.openstreetmap.org/copyright" style={{ color: "var(--color-text-muted)" }}>OpenStreetMap</a> contributors, available under the <a href="https://opendatacommons.org/licenses/odbl/" style={{ color: "var(--color-text-muted)" }}>ODbL</a>.
               </div>
-              <div>© {new Date().getFullYear()} Petersen Software Solutions LLC. All rights reserved.</div>
+              <div>© {new Date().getFullYear()} Mama Dog LLC. All rights reserved.</div>
             </div>
           </footer>
         </ToastProvider>

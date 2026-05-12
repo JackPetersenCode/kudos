@@ -9,11 +9,11 @@ export default function TermsOfServicePage() {
     <main className="page-container-medium" style={{ lineHeight: 1.8 }}>
       <h1>Terms of Service</h1>
       <p style={{ color: "var(--color-text-secondary)" }}>Last updated: April 24, 2026</p>
-      <p style={{ color: "var(--color-text-secondary)" }}>Operated by Petersen Software Solutions LLC</p>
+      <p style={{ color: "var(--color-text-secondary)" }}>Operated by Mama Dog LLC</p>
 
       <section>
         <h2>1. Acceptance of Terms</h2>
-        <p>By accessing or using Reputater (&quot;the Service&quot;), operated by Petersen Software Solutions LLC (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to all of these Terms, do not use the Service.</p>
+        <p>By accessing or using Reputater (&quot;the Service&quot;), operated by Mama Dog LLC (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to all of these Terms, do not use the Service.</p>
       </section>
 
       <section>
@@ -36,7 +36,7 @@ export default function TermsOfServicePage() {
           <li>You may not post fake, misleading, or incentivized reviews</li>
           <li>You may not post content that is defamatory, obscene, threatening, discriminatory, or that infringes on the intellectual property rights of others</li>
           <li>Photos you upload must be your own original work, or you must have explicit permission from the copyright holder</li>
-          <li>You retain ownership of all content you post. By posting, you grant Petersen Software Solutions LLC a worldwide, non-exclusive, royalty-free, transferable license to use, display, reproduce, distribute, and create derivative works of your content in connection with the Service</li>
+          <li>You retain ownership of all content you post. By posting, you grant Mama Dog LLC a worldwide, non-exclusive, royalty-free, transferable license to use, display, reproduce, distribute, and create derivative works of your content in connection with the Service</li>
           <li>We reserve the right to remove any content that violates these Terms at our sole discretion</li>
         </ul>
       </section>
@@ -97,7 +97,7 @@ export default function TermsOfServicePage() {
 
       <section>
         <h2>8. Section 230 Notice</h2>
-        <p>Reputater is a provider of an interactive computer service within the meaning of Section 230 of the Communications Decency Act (47 U.S.C. § 230). User-generated content on the Service — including reviews, photos, staff kudos, and business listings contributed by users — represents the views and opinions of the individual users who post them, not the views of Petersen Software Solutions LLC. We are not the publisher or speaker of user-generated content and are not liable for it.</p>
+        <p>Reputater is a provider of an interactive computer service within the meaning of Section 230 of the Communications Decency Act (47 U.S.C. § 230). User-generated content on the Service — including reviews, photos, staff kudos, and business listings contributed by users — represents the views and opinions of the individual users who post them, not the views of Mama Dog LLC. We are not the publisher or speaker of user-generated content and are not liable for it.</p>
       </section>
 
       <section>
@@ -121,7 +121,7 @@ export default function TermsOfServicePage() {
 
       <section>
         <h2>12. Indemnification</h2>
-        <p>You agree to defend, indemnify, and hold harmless Petersen Software Solutions LLC and its officers, directors, employees, and agents from any claims, damages, obligations, losses, liabilities, costs, or expenses (including attorney&apos;s fees) arising from: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any third-party right, including intellectual property rights; or (d) any content you post on the Service.</p>
+        <p>You agree to defend, indemnify, and hold harmless Mama Dog LLC and its officers, directors, employees, and agents from any claims, damages, obligations, losses, liabilities, costs, or expenses (including attorney&apos;s fees) arising from: (a) your use of the Service; (b) your violation of these Terms; (c) your violation of any third-party right, including intellectual property rights; or (d) any content you post on the Service.</p>
       </section>
 
       <section>
@@ -144,7 +144,7 @@ export default function TermsOfServicePage() {
         <h2>16. Contact</h2>
         <p>For questions about these Terms, contact:</p>
         <p>
-          Petersen Software Solutions LLC<br />
+          Mama Dog LLC<br />
           Email: legal@reputater.com
         </p>
       </section>
