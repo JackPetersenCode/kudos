@@ -15,8 +15,17 @@ import {
 import { getStaffMembers, StaffMember } from "@/lib/staff";
 import { getPlaceholderImage } from "@/lib/placeholderImages";
 import ReviewForm from "@/components/ReviewForm";
+import RequireAuth from "@/components/RequireAuth";
 
 export default function WriteReviewForBusinessPage() {
+  return (
+    <RequireAuth>
+      <WriteReviewForBusinessContent />
+    </RequireAuth>
+  );
+}
+
+function WriteReviewForBusinessContent() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;

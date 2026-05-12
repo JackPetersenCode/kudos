@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getTaterLevel } from "@/lib/taterLevel";
 import {
@@ -62,9 +62,18 @@ const CATEGORY_META = [
 
 export default function PublicBusinessPage() {
   const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const slug = params.slug as string;
   const { showToast } = useToast();
   const { isAuthenticated } = useAuth();
+
+  // Send signed-out users to /login with a next= back to this page
+  const requireAuthOrRedirect = useCallback((): boolean => {
+    if (isAuthenticated) return true;
+    router.push(`/login?next=${encodeURIComponent(pathname)}`);
+    return false;
+  }, [isAuthenticated, router, pathname]);
 
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [photos, setPhotos] = useState<PublicBusinessPhoto[]>([]);
@@ -120,6 +129,7 @@ export default function PublicBusinessPage() {
 
   async function handleToggleFavorite() {
     if (!business) return;
+    if (!requireAuthOrRedirect()) return;
     try {
       if (isFavorited) {
         await removeFavorite(business.id);
@@ -128,24 +138,26 @@ export default function PublicBusinessPage() {
         await addFavorite(business.id);
         setIsFavorited(true);
       }
-    } catch {
-      // ignore if not logged in
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't update favorites", "error");
     }
   }
 
   async function handleCheckIn() {
     if (!business) return;
+    if (!requireAuthOrRedirect()) return;
     try {
       await checkIn(business.id);
       const counts = await getCheckInCount(business.id);
       setCheckInCount(counts.totalCheckIns);
-    } catch {
-      // ignore
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't check in", "error");
     }
   }
 
   async function handleToggleHelpful(review: BusinessReview) {
     if (!business) return;
+    if (!requireAuthOrRedirect()) return;
     try {
       if (review.isMarkedHelpful) {
         await unmarkReviewHelpful(review.id);
@@ -153,8 +165,8 @@ export default function PublicBusinessPage() {
         await markReviewHelpful(review.id);
       }
       await loadReviews(business.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't update", "error");
     }
   }
 

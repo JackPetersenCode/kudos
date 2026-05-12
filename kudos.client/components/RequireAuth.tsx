@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 type Props = {
@@ -11,9 +11,11 @@ type Props = {
 
 export default function RequireAuth({
   children,
-  redirectTo = "/login",
+  redirectTo,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isReady } = useAuth();
   const [show, setShow] = useState(false);
 
@@ -21,11 +23,19 @@ export default function RequireAuth({
     if (!isReady) return;
 
     if (!isAuthenticated) {
-      router.replace(redirectTo);
+      // Default: send to /login?next=<current full path> so user lands back here after login.
+      // Explicit redirectTo overrides.
+      if (redirectTo) {
+        router.replace(redirectTo);
+      } else {
+        const qs = searchParams.toString();
+        const full = qs ? `${pathname}?${qs}` : pathname;
+        router.replace(`/login?next=${encodeURIComponent(full)}`);
+      }
     } else {
       setShow(true);
     }
-  }, [isAuthenticated, isReady, redirectTo, router]);
+  }, [isAuthenticated, isReady, redirectTo, router, pathname, searchParams]);
 
   return (
     <div style={{ visibility: show ? "visible" : "hidden" }}>
