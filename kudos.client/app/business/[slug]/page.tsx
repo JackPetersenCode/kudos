@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getTaterLevel } from "@/lib/taterLevel";
 import {
@@ -63,17 +63,23 @@ const CATEGORY_META = [
 export default function PublicBusinessPage() {
   const params = useParams();
   const router = useRouter();
-  const pathname = usePathname();
   const slug = params.slug as string;
   const { showToast } = useToast();
   const { isAuthenticated } = useAuth();
 
-  // Send signed-out users to /login with a next= back to this page
+  // Send signed-out users to /login with a next= back to this page.
+  // Read pathname from window directly to avoid forcing every consumer of
+  // RequireAuth into a Suspense boundary (Next.js requires that for
+  // usePathname/useSearchParams).
   const requireAuthOrRedirect = useCallback((): boolean => {
     if (isAuthenticated) return true;
-    router.push(`/login?next=${encodeURIComponent(pathname)}`);
+    const full =
+      typeof window !== "undefined"
+        ? window.location.pathname + window.location.search
+        : "/";
+    router.push(`/login?next=${encodeURIComponent(full)}`);
     return false;
-  }, [isAuthenticated, router, pathname]);
+  }, [isAuthenticated, router]);
 
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
   const [photos, setPhotos] = useState<PublicBusinessPhoto[]>([]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 type Props = {
@@ -14,8 +14,6 @@ export default function RequireAuth({
   redirectTo,
 }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { isAuthenticated, isReady } = useAuth();
   const [show, setShow] = useState(false);
 
@@ -28,14 +26,19 @@ export default function RequireAuth({
       if (redirectTo) {
         router.replace(redirectTo);
       } else {
-        const qs = searchParams.toString();
-        const full = qs ? `${pathname}?${qs}` : pathname;
+        // Read URL directly from window — using usePathname/useSearchParams here
+        // would require every parent page to be wrapped in Suspense (Next.js
+        // build error: "useSearchParams should be wrapped in a suspense boundary").
+        const full =
+          typeof window !== "undefined"
+            ? window.location.pathname + window.location.search
+            : "/";
         router.replace(`/login?next=${encodeURIComponent(full)}`);
       }
     } else {
       setShow(true);
     }
-  }, [isAuthenticated, isReady, redirectTo, router, pathname, searchParams]);
+  }, [isAuthenticated, isReady, redirectTo, router]);
 
   return (
     <div style={{ visibility: show ? "visible" : "hidden" }}>
