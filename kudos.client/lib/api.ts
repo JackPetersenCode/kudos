@@ -20,6 +20,21 @@ export async function apiFetch(
   });
 
   if (!response.ok) {
+    // If the server rejects our token (expired / signed with rotated key /
+    // user deleted on server), clear the stale token client-side and notify
+    // useAuth so isAuthenticated flips to false. Callers can then react
+    // (e.g. ReviewForm pops up the sign-in modal).
+    // Only do this when we actually sent a token — a 401 from a public
+    // endpoint with no token means something else.
+    if (response.status === 401 && token && typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("token");
+        window.dispatchEvent(new Event("auth-changed"));
+      } catch {
+        // ignore storage failures
+      }
+    }
+
     let parsed: Record<string, unknown> | null = null;
     let text = "";
 

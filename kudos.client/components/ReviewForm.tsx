@@ -78,6 +78,14 @@ export default function ReviewForm({
   // pendingSubmit ref is replayed automatically.
   const [signInOpen, setSignInOpen] = useState(false);
   const pendingSubmit = useRef(false);
+  // Cache successful uploads across retries so the stale-token-then-sign-in
+  // replay doesn't re-upload (and orphan) the same photos twice.
+  const uploadedPhotosRef = useRef<{
+    storageKey: string;
+    originalUrl: string;
+    contentType?: string | null;
+    sizeBytes?: number | null;
+  }[] | null>(null);
 
   // Staff recognition state — initialize from existing review if editing
   const [staffRecognitions, setStaffRecognitions] = useState<
@@ -200,10 +208,15 @@ export default function ReviewForm({
         sizeBytes?: number | null;
       }[] = [];
 
-      if (selectedFiles.length > 0) {
+      // Reuse uploads from a previous attempt if this is a retry after sign-in,
+      // so we don't re-upload (and orphan) the same files.
+      if (uploadedPhotosRef.current) {
+        uploadedPhotos = uploadedPhotosRef.current;
+      } else if (selectedFiles.length > 0) {
         uploadedPhotos = await Promise.all(
           selectedFiles.map((file) => uploadReviewPhoto(file))
         );
+        uploadedPhotosRef.current = uploadedPhotos;
       }
 
       const staffRecognitionPayload = Object.entries(staffRecognitions).map(
@@ -224,6 +237,7 @@ export default function ReviewForm({
         setSuccess("Review updated.");
         setSelectedFiles([]);
         setDeletePhotoIds([]);
+        uploadedPhotosRef.current = null;
         await onReviewCreated();
         return;
       }
@@ -257,9 +271,26 @@ export default function ReviewForm({
       setSelectedTags([]);
       setSelectedFiles([]);
       setStaffRecognitions({});
+      uploadedPhotosRef.current = null;
 
       await onReviewCreated();
     } catch (err) {
+      // Stale JWT (server rejected token that the client thought was valid):
+      // clear the dead token, fire the auth-changed event so useAuth re-evaluates,
+      // and pop the sign-in modal so the user can re-auth without losing their draft.
+      const status = (err as { status?: number })?.status;
+      if (status === 401) {
+        try {
+          localStorage.removeItem("token");
+          window.dispatchEvent(new Event("auth-changed"));
+        } catch {
+          // ignore storage failures
+        }
+        pendingSubmit.current = true;
+        setSignInOpen(true);
+        setLoading(false);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not submit review");
     } finally {
       setLoading(false);
