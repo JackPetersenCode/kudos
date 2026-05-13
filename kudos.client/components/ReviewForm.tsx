@@ -303,6 +303,7 @@ export default function ReviewForm({
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} style={{ marginTop: isEditMode ? 24 : 0 }}>
       {isEditMode && <h3>Edit Your Review</h3>}
 
@@ -554,26 +555,31 @@ export default function ReviewForm({
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
-
-      <SignInPromptModal
-        open={signInOpen}
-        onClose={() => {
-          setSignInOpen(false);
-          pendingSubmit.current = false;
-        }}
-        onSignedIn={() => {
-          setSignInOpen(false);
-          if (pendingSubmit.current) {
-            pendingSubmit.current = false;
-            // Auth state hasn't propagated through React yet — but the JWT is
-            // in localStorage and apiFetch reads it directly, so doSubmit can
-            // run safely without re-checking the React auth state.
-            doSubmit();
-          }
-        }}
-        title="Sign in to post your review"
-        subtitle="Your review is saved — we'll post it as soon as you're signed in."
-      />
     </form>
+
+    {/* Modal must be a sibling of the form, NOT nested inside, because
+        the modal has its own <form> and nested forms are invalid HTML
+        (browsers handle them inconsistently — the inner submit can
+        bubble to the outer form, causing a double-submit race). */}
+    <SignInPromptModal
+      open={signInOpen}
+      onClose={() => {
+        setSignInOpen(false);
+        pendingSubmit.current = false;
+      }}
+      onSignedIn={() => {
+        setSignInOpen(false);
+        if (pendingSubmit.current) {
+          pendingSubmit.current = false;
+          // Auth state hasn't propagated through React yet — but the JWT is
+          // in localStorage and apiFetch reads it directly, so doSubmit can
+          // run safely without re-checking the React auth state.
+          doSubmit();
+        }
+      }}
+      title="Sign in to post your review"
+      subtitle="Your review is saved — we'll post it as soon as you're signed in."
+    />
+    </>
   );
 }
