@@ -118,15 +118,11 @@ export default function ReviewForm({
     setStaffRecognitions(sr);
   }, [existingReview]);
 
-  // Replay the pending submit after the user signs in via the modal
-  useEffect(() => {
-    if (isAuthenticated && pendingSubmit.current) {
-      pendingSubmit.current = false;
-      setSignInOpen(false);
-      submitReview();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  // Modal sign-in success triggers the retry directly (see onSignedIn
+  // in the SignInPromptModal at the bottom of the form). useEffect on
+  // isAuthenticated was unreliable here because React state updates
+  // don't always propagate before the modal closes — leading to a
+  // false-negative auth check on the retry. Direct callback is simpler.
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -178,6 +174,7 @@ export default function ReviewForm({
     await submitReview();
   }
 
+  // Top-level submit: validates, checks auth, then delegates to doSubmit.
   async function submitReview() {
     setError("");
     setSuccess("");
@@ -195,6 +192,14 @@ export default function ReviewForm({
       return;
     }
 
+    await doSubmit();
+  }
+
+  // Actually post the review. Called either directly (signed-in user) or
+  // from the sign-in modal's onSignedIn callback (where we know auth just
+  // succeeded — skipping the auth check avoids a React state-update race
+  // that re-opens the modal).
+  async function doSubmit() {
     setLoading(true);
 
     // Auto-calculate rating from number of tags selected
@@ -557,7 +562,14 @@ export default function ReviewForm({
           pendingSubmit.current = false;
         }}
         onSignedIn={() => {
-          // useEffect on isAuthenticated will fire and replay submitReview()
+          setSignInOpen(false);
+          if (pendingSubmit.current) {
+            pendingSubmit.current = false;
+            // Auth state hasn't propagated through React yet — but the JWT is
+            // in localStorage and apiFetch reads it directly, so doSubmit can
+            // run safely without re-checking the React auth state.
+            doSubmit();
+          }
         }}
         title="Sign in to post your review"
         subtitle="Your review is saved — we'll post it as soon as you're signed in."
