@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createBusinessReview,
   updateBusinessReview,
@@ -8,6 +8,8 @@ import {
 import { uploadReviewPhoto } from "@/lib/reviewPhotos";
 import { StaffMember } from "@/lib/staff";
 import { useToast } from "@/components/Toast";
+import { useAuth } from "@/hooks/useAuth";
+import SignInPromptModal from "@/components/SignInPromptModal";
 
 type ReviewFormProps = {
   businessId: string;
@@ -66,9 +68,16 @@ export default function ReviewForm({
   );
   const [deletePhotoIds, setDeletePhotoIds] = useState<string[]>([]);
   const { showToast } = useToast();
+  const { isAuthenticated, isReady } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Sign-in modal state: when a signed-out user hits Post Review,
+  // we open this modal instead of redirecting. After sign-in, the
+  // pendingSubmit ref is replayed automatically.
+  const [signInOpen, setSignInOpen] = useState(false);
+  const pendingSubmit = useRef(false);
 
   // Staff recognition state — initialize from existing review if editing
   const [staffRecognitions, setStaffRecognitions] = useState<
@@ -100,6 +109,16 @@ export default function ReviewForm({
     }
     setStaffRecognitions(sr);
   }, [existingReview]);
+
+  // Replay the pending submit after the user signs in via the modal
+  useEffect(() => {
+    if (isAuthenticated && pendingSubmit.current) {
+      pendingSubmit.current = false;
+      setSignInOpen(false);
+      submitReview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -148,15 +167,27 @@ export default function ReviewForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    await submitReview();
+  }
+
+  async function submitReview() {
     setError("");
     setSuccess("");
-    setLoading(true);
 
     if (selectedTags.length === 0) {
       setError("Please select at least one category.");
-      setLoading(false);
       return;
     }
+
+    // If signed out, show the sign-in modal and stash a flag to replay
+    // this submit after sign-in. Preserves the user's typed content.
+    if (isReady && !isAuthenticated) {
+      pendingSubmit.current = true;
+      setSignInOpen(true);
+      return;
+    }
+
+    setLoading(true);
 
     // Auto-calculate rating from number of tags selected
     const autoRating = Math.max(1, selectedTags.length) as 1 | 2 | 3 | 4 | 5;
@@ -487,6 +518,19 @@ export default function ReviewForm({
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
+
+      <SignInPromptModal
+        open={signInOpen}
+        onClose={() => {
+          setSignInOpen(false);
+          pendingSubmit.current = false;
+        }}
+        onSignedIn={() => {
+          // useEffect on isAuthenticated will fire and replay submitReview()
+        }}
+        title="Sign in to post your review"
+        subtitle="Your review is saved — we'll post it as soon as you're signed in."
+      />
     </form>
   );
 }

@@ -3,17 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-import RequireAuth from "@/components/RequireAuth";
 
 export default function WriteReviewPage() {
-  return (
-    <RequireAuth>
-      <WriteReviewContent />
-    </RequireAuth>
-  );
-}
-
-function WriteReviewContent() {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
