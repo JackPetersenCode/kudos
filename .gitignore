@@ -16,3 +16,13 @@ Thumbs.db
 
 # Temp
 /tmp/
+
+# Build artifacts (anywhere in the tree, not just inside Kudos.Server/)
+bin/
+obj/
+
+# Secrets — never commit any .env or .env.local at any level
+.env
+.env.local
+.env.*.local
+!.env.example

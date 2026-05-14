@@ -86,6 +86,10 @@ export default function ReviewForm({
     contentType?: string | null;
     sizeBytes?: number | null;
   }[] | null>(null);
+  // Loop guard: if doSubmit hits 401 twice in a row (e.g. server token
+  // validation is genuinely broken, not just a stale token), surface a
+  // real error instead of bouncing the modal forever.
+  const consecutive401Ref = useRef(0);
 
   // Staff recognition state — initialize from existing review if editing
   const [staffRecognitions, setStaffRecognitions] = useState<
@@ -277,6 +281,7 @@ export default function ReviewForm({
       setSelectedFiles([]);
       setStaffRecognitions({});
       uploadedPhotosRef.current = null;
+      consecutive401Ref.current = 0;
 
       await onReviewCreated();
     } catch (err) {
@@ -285,6 +290,18 @@ export default function ReviewForm({
       // and pop the sign-in modal so the user can re-auth without losing their draft.
       const status = (err as { status?: number })?.status;
       if (status === 401) {
+        consecutive401Ref.current += 1;
+        // If we've already retried after sign-in and STILL hit 401, the issue
+        // isn't a stale token — surface the real error instead of looping.
+        if (consecutive401Ref.current >= 2) {
+          consecutive401Ref.current = 0;
+          setError(
+            "Couldn't post your review — the server rejected your sign-in. " +
+            "Please refresh the page and try again. If the problem persists, contact support@reputater.com."
+          );
+          setLoading(false);
+          return;
+        }
         try {
           localStorage.removeItem("token");
           window.dispatchEvent(new Event("auth-changed"));
@@ -296,6 +313,8 @@ export default function ReviewForm({
         setLoading(false);
         return;
       }
+      // Any non-401 success path resets the loop counter.
+      consecutive401Ref.current = 0;
       setError(err instanceof Error ? err.message : "Could not submit review");
     } finally {
       setLoading(false);
@@ -566,6 +585,10 @@ export default function ReviewForm({
       onClose={() => {
         setSignInOpen(false);
         pendingSubmit.current = false;
+        // User abandoned the flow — drop cached uploads so a fresh attempt
+        // re-uploads with fresh storage keys instead of reusing orphans.
+        uploadedPhotosRef.current = null;
+        consecutive401Ref.current = 0;
       }}
       onSignedIn={() => {
         setSignInOpen(false);

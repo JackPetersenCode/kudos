@@ -14,11 +14,13 @@ namespace Kudos.Server.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly OpenAIService _openAi;
+        private readonly PushNotificationService _push;
 
-        public PaymentController(IConfiguration configuration, OpenAIService openAi)
+        public PaymentController(IConfiguration configuration, OpenAIService openAi, PushNotificationService push)
         {
             _configuration = configuration;
             _openAi = openAi;
+            _push = push;
         }
 
         /// <summary>
@@ -264,6 +266,13 @@ namespace Kudos.Server.Controllers
                         notifCmd.Parameters.AddWithValue("@body", notifBody);
                         notifCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
                         await notifCmd.ExecuteNonQueryAsync();
+
+                        // Fire push to the ad owner (fire-and-forget; failure non-fatal)
+                        _ = _push.SendToUserAsync(
+                            userId.Value,
+                            notifSubject,
+                            notifBody,
+                            new { type = "ad_review", status = newStatus });
                     }
                 }
                 catch

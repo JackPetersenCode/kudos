@@ -1,4 +1,5 @@
 using Kudos.Server.Data;
+using Kudos.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -14,10 +15,12 @@ namespace Kudos.Server.Controllers
     public class FeaturesController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly PushNotificationService _push;
 
-        public FeaturesController(IConfiguration configuration)
+        public FeaturesController(IConfiguration configuration, PushNotificationService push)
         {
             _configuration = configuration;
+            _push = push;
         }
 
         private string GetConnectionString() =>
@@ -565,6 +568,13 @@ namespace Kudos.Server.Controllers
                         notifCmd.Parameters.AddWithValue("@biz_name", bizName);
                         notifCmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
                         await notifCmd.ExecuteNonQueryAsync();
+
+                        // Fire push to the claimant (fire-and-forget; failure non-fatal)
+                        _ = _push.SendToUserAsync(
+                            claimUserId,
+                            "Your business claim was approved!",
+                            $"You now own \"{bizName}\". Set up your business page to get started.",
+                            new { type = "claim_approved", businessSlug = bizSlug });
                     }
                 }
                 catch { /* don't fail if notification fails */ }

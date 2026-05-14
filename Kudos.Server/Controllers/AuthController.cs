@@ -71,7 +71,7 @@ namespace kudos.Controllers
                 setTokenCmd.Parameters.AddWithValue("@email", request.Email);
                 await setTokenCmd.ExecuteNonQueryAsync();
 
-                var verifyUrl = $"{_configuration["App:FrontendUrl"] ?? "http://localhost:3000"}/verify-email?token={verificationToken}";
+                var verifyUrl = $"{_configuration["App:FrontendUrl"] ?? "https://reputater.com"}/verify-email?token={verificationToken}";
                 await _emailService.SendVerificationEmail(request.Email, verifyUrl);
 
                 var token = GenerateJwtToken(request.Email, "user");
@@ -198,7 +198,7 @@ namespace kudos.Controllers
                 updateCmd.Parameters.AddWithValue("@email", request.Email);
                 await updateCmd.ExecuteNonQueryAsync();
 
-                var resetUrl = $"{_configuration["App:FrontendUrl"] ?? "http://localhost:3000"}/reset-password?token={resetToken}";
+                var resetUrl = $"{_configuration["App:FrontendUrl"] ?? "https://reputater.com"}/reset-password?token={resetToken}";
                 await _emailService.SendPasswordResetEmail(request.Email, resetUrl);
 
                 return Ok(new { message = "If that email exists, a reset link has been sent." });

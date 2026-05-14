@@ -31,7 +31,7 @@ namespace Kudos.Server.Services
             }
 
             var client = new SendGridClient(apiKey);
-            var fromEmail = _configuration["SendGrid:FromEmail"] ?? "noreply@kudos.app";
+            var fromEmail = _configuration["SendGrid:FromEmail"] ?? "noreply@reputater.com";
             var fromName = _configuration["SendGrid:FromName"] ?? "Reputater";
 
             var msg = MailHelper.CreateSingleEmail(
