@@ -3,14 +3,14 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV !== "production";
 
 // External origins the app legitimately loads. Derived from a codebase audit:
-//  - Google Maps JS API (@react-google-maps/api): loads its script from
-//    maps.googleapis.com and pulls map tiles/images from *.gstatic.com,
-//    *.googleapis.com and *.google.com.
+//  - Maps: Leaflet + OpenStreetMap tiles ({s}.tile.openstreetmap.org) and
+//    Leaflet's default marker icons (unpkg.com). Images are allowed from any
+//    https host (see img-src) because business photos can be served from R2 or
+//    from arbitrary external CDNs on imported listings — images can't execute,
+//    so this is a safe relaxation while scripts/frames stay locked down.
 //  - Stripe (@stripe/stripe-js): script from js.stripe.com, XHR to api.stripe.com,
 //    and Payment Element renders inside iframes from js.stripe.com / hooks.stripe.com.
-//  - Cloudflare R2 public bucket: images served from the *.r2.dev host below.
 //  - The backend API, whose origin comes from NEXT_PUBLIC_API_BASE_URL.
-const R2_PUBLIC_HOST = "https://pub-e3a9c8c4ae654841ba1d956cb83dc898.r2.dev";
 
 // Resolve the API origin (scheme + host + port) from the configured base URL so
 // connect-src allows the backend regardless of environment (localhost in dev,
@@ -41,7 +41,6 @@ function buildCsp(): string {
       "'self'",
       "'unsafe-inline'",
       ...(isDev ? ["'unsafe-eval'"] : []),
-      "https://maps.googleapis.com",
       "https://js.stripe.com",
     ],
     // Styles: 'unsafe-inline' covers the many inline <style> blocks / style props
@@ -49,30 +48,23 @@ function buildCsp(): string {
     "style-src": ["'self'", "'unsafe-inline'"],
     // Fonts are self-hosted by next/font (Inter); data: covers inlined glyphs.
     "font-src": ["'self'", "data:"],
-    // Images: local, data/blob URIs, the R2 public bucket, Google Maps tiles and
-    // any images served by the backend API.
+    // Images: local, data/blob URIs, any https host (map tiles, Leaflet markers,
+    // R2 bucket, and external CDN photos on imported listings), plus the API
+    // origin so http://localhost images work in dev. Images can't execute, so a
+    // broad https: allowance here does not weaken script/frame protections.
     "img-src": [
       "'self'",
       "data:",
       "blob:",
-      R2_PUBLIC_HOST,
-      "https://maps.gstatic.com",
-      "https://maps.googleapis.com",
-      "https://*.googleapis.com",
-      "https://*.gstatic.com",
-      "https://*.google.com",
+      "https:",
       ...(API_ORIGIN ? [API_ORIGIN] : []),
     ],
-    // XHR/fetch/WebSocket targets: backend API, Stripe API, Google Maps tile/data
-    // endpoints. blob: is needed by Maps; ws: is the dev HMR socket.
+    // XHR/fetch/WebSocket targets: backend API and Stripe API. ws: is the dev HMR socket.
     "connect-src": [
       "'self'",
       "blob:",
       ...(API_ORIGIN ? [API_ORIGIN] : []),
       "https://api.stripe.com",
-      "https://maps.googleapis.com",
-      "https://*.googleapis.com",
-      "https://*.gstatic.com",
       ...(isDev ? ["ws:", "wss:"] : []),
     ],
     // Iframes: Stripe Payment Element renders inside Stripe-hosted frames.
