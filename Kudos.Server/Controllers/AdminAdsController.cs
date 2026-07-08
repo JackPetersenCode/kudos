@@ -8,14 +8,16 @@ namespace Kudos.Server.Controllers
 {
     [ApiController]
     [Route("api/admin/ads")]
-    [Authorize]
+    [Authorize(Roles = "admin")]
     public class AdminAdsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AdminAdsController> _logger;
 
-        public AdminAdsController(IConfiguration configuration)
+        public AdminAdsController(IConfiguration configuration, ILogger<AdminAdsController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -81,7 +83,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetAdsForReview));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -146,7 +149,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -215,8 +219,8 @@ namespace Kudos.Server.Controllers
                             {
                                 if (newStatus == "active")
                                 {
-                                    // Capture the held payment
-                                    await piService.CaptureAsync(piId);
+                                    // Capture the held payment (idempotent on retry).
+                                    await piService.CaptureAsync(piId, null, new RequestOptions { IdempotencyKey = $"capture_{piId}" });
                                 }
                                 else if (newStatus == "rejected")
                                 {
@@ -226,7 +230,18 @@ namespace Kudos.Server.Controllers
                             }
                             catch (StripeException ex)
                             {
-                                // Don't block status update if Stripe fails
+                                if (newStatus == "active")
+                                {
+                                    // Capture failed → do NOT activate an unpaid ad. Abort the status change.
+                                    _logger.LogError(ex, "Admin approve: capture FAILED for ad {AdId}, intent {PaymentIntentId}. Ad not activated.", adId, piId);
+                                    return StatusCode(StatusCodes.Status402PaymentRequired, new
+                                    {
+                                        message = "Payment capture failed for this ad. It was not activated."
+                                    });
+                                }
+
+                                // Cancel-on-reject failure is non-fatal (hold auto-expires); log and continue.
+                                _logger.LogError(ex, "Admin reject: failed to cancel hold {PaymentIntentId} for ad {AdId}.", piId, adId);
                             }
                         }
                     }
@@ -255,7 +270,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(PauseAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

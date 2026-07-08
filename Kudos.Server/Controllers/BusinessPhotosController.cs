@@ -16,15 +16,18 @@ namespace Kudos.Server.Controllers
         private readonly IAmazonS3 _s3;
         private readonly CloudflareR2Options _r2;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<BusinessPhotosController> _logger;
 
         public BusinessPhotosController(
             IAmazonS3 s3,
             IOptions<CloudflareR2Options> r2Options,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ILogger<BusinessPhotosController> logger)
         {
             _s3 = s3;
             _r2 = r2Options.Value;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -86,7 +89,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetPhotos));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -139,7 +143,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateUploadUrl));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -229,7 +234,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CompleteUpload));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -328,7 +334,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(DeletePhoto));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -366,7 +373,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateCommunityUploadUrl));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -428,7 +436,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CompleteCommunityUpload));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -503,7 +512,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(DeleteCommunityPhoto));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

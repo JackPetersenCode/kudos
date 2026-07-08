@@ -7,14 +7,16 @@ namespace Kudos.Server.Controllers
 {
     [ApiController]
     [Route("api/admin/stats")]
-    [Authorize]
+    [Authorize(Roles = "admin")]
     public class AdminStatsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AdminStatsController> _logger;
 
-        public AdminStatsController(IConfiguration configuration)
+        public AdminStatsController(IConfiguration configuration, ILogger<AdminStatsController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -127,7 +129,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetSiteStats));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

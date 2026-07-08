@@ -7,14 +7,16 @@ namespace Kudos.Server.Controllers
 {
     [ApiController]
     [Route("api/admin/flags")]
-    [Authorize]
+    [Authorize(Roles = "admin")]
     public class AdminFlagsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AdminFlagsController> _logger;
 
-        public AdminFlagsController(IConfiguration configuration)
+        public AdminFlagsController(IConfiguration configuration, ILogger<AdminFlagsController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -93,7 +95,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetFlags));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -183,7 +186,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ResolveFlag));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

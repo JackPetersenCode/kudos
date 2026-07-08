@@ -28,4 +28,10 @@
     <PackageReference Include="Twilio" Version="7.14.7" />
   </ItemGroup>
 
+  <!-- Ship SQL schema/migration scripts into the publish output so the
+       startup migrator can find them inside the Docker image. -->
+  <ItemGroup>
+    <Content Include="sql\**\*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -17,15 +17,18 @@ namespace Kudos.Server.Controllers
         private readonly IAmazonS3 _s3;
         private readonly CloudflareR2Options _r2;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<ReviewPhotosController> _logger;
 
         public ReviewPhotosController(
             IAmazonS3 s3,
             IOptions<CloudflareR2Options> r2Options,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ILogger<ReviewPhotosController> logger)
         {
             _s3 = s3;
             _r2 = r2Options.Value;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("upload-url")]
@@ -97,10 +100,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateUploadUrl));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }

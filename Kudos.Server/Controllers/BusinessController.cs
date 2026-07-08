@@ -15,11 +15,13 @@ namespace Kudos.Server.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
+        private readonly ILogger<BusinessController> _logger;
 
-        public BusinessController(IConfiguration configuration, HttpClient httpClient)
+        public BusinessController(IConfiguration configuration, HttpClient httpClient, ILogger<BusinessController> logger)
         {
             _configuration = configuration;
             _httpClient = httpClient;
+            _logger = logger;
         }
 
         [HttpPost]
@@ -277,11 +279,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateBusiness));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -422,11 +424,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-        
+                _logger.LogError(ex, "Error in {Action}", nameof(GetBusinessBySlug));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -661,15 +663,15 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateBusiness));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
-        
+
         private string BuildAddress(CreateBusinessRequest request)
         {
             var parts = new[]
@@ -913,7 +915,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateBusiness));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

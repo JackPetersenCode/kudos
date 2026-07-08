@@ -8,10 +8,12 @@ namespace Kudos.Server.Controllers
     public class PublicAutocompleteController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<PublicAutocompleteController> _logger;
 
-        public PublicAutocompleteController(IConfiguration configuration)
+        public PublicAutocompleteController(IConfiguration configuration, ILogger<PublicAutocompleteController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -120,7 +122,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(Autocomplete));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

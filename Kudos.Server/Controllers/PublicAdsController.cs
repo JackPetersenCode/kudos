@@ -9,10 +9,12 @@ namespace Kudos.Server.Controllers
     public class PublicAdsController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<PublicAdsController> _logger;
 
-        public PublicAdsController(IConfiguration configuration)
+        public PublicAdsController(IConfiguration configuration, ILogger<PublicAdsController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         /// <summary>
@@ -120,7 +122,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetAdForPlacement));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -158,7 +161,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(TrackImpression));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -196,7 +200,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(TrackClick));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

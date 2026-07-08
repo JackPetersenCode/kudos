@@ -153,7 +153,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(InitiateClaim));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -225,7 +226,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(SendEmailCode));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -309,7 +311,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(SendSmsCode));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -349,7 +352,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(SubmitManualClaim));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -404,7 +408,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(VerifyCode));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

@@ -9,10 +9,12 @@ namespace Kudos.Server.Controllers
     public class PublicSearchController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<PublicSearchController> _logger;
 
-        public PublicSearchController(IConfiguration configuration)
+        public PublicSearchController(IConfiguration configuration, ILogger<PublicSearchController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -492,11 +494,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Error in {Action}", nameof(Search));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }

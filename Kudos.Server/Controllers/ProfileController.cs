@@ -11,10 +11,12 @@ namespace kudos.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<ProfileController> _logger;
 
-    public ProfileController(IConfiguration configuration)
+    public ProfileController(IConfiguration configuration, ILogger<ProfileController> logger)
     {
         _configuration = configuration;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -72,11 +74,12 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Error in {Action}", nameof(GetProfile));
 
             return StatusCode(500, new
             {
-                message = ex.Message,
-                
+                message = "An unexpected error occurred.",
+
             });
         }
     }
@@ -112,7 +115,8 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = ex.Message });
+            _logger.LogError(ex, "Error in {Action}", nameof(UpdateDisplayName));
+            return StatusCode(500, new { message = "An unexpected error occurred." });
         }
     }
 
@@ -216,7 +220,8 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = ex.Message });
+            _logger.LogError(ex, "Error in {Action}", nameof(GetPublicProfile));
+            return StatusCode(500, new { message = "An unexpected error occurred." });
         }
     }
 
@@ -296,10 +301,11 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-        
+            _logger.LogError(ex, "Error in {Action}", nameof(GetAccessibleBusinesses));
+
             return StatusCode(500, new
             {
-                message = ex.Message,
+                message = "An unexpected error occurred.",
 
             });
         }
@@ -359,7 +365,8 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = ex.Message });
+            _logger.LogError(ex, "Error in {Action}", nameof(RegisterPushToken));
+            return StatusCode(500, new { message = "An unexpected error occurred." });
         }
     }
 
@@ -383,7 +390,8 @@ public class ProfileController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = ex.Message });
+            _logger.LogError(ex, "Error in {Action}", nameof(UnregisterPushToken));
+            return StatusCode(500, new { message = "An unexpected error occurred." });
         }
     }
 }

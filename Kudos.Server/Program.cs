@@ -3,15 +3,37 @@ using System.Threading.RateLimiting;
 using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Kudos.Server.Data;
 using Kudos.Server.Services;
-DotNetEnv.Env.Load();
+
+// Load .env for local development only. In production, configuration comes
+// from real environment variables (see AddEnvironmentVariables below), so a
+// dev .env file should never be present in the image (see .dockerignore).
+if (File.Exists(".env"))
+{
+    DotNetEnv.Env.Load();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+
+// Trust the proxy (Railway/Vercel/nginx) so RemoteIpAddress and the scheme
+// reflect the real client, not the load balancer. Required for correct
+// per-client rate limiting and HTTPS detection behind a reverse proxy.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Hosting platform proxies are not on a known private subnet; clear the
+    // default restrictions so forwarded headers are honored. (Safe because the
+    // platform strips inbound X-Forwarded-* from clients.)
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("WebApiDatabase")));
@@ -129,10 +151,20 @@ var app = builder.Build();
 
 // Auto-run SQL migrations on startup
 {
+    var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Migrations");
     var connectionString = app.Configuration.GetConnectionString("WebApiDatabase");
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
-        var sqlDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "sql");
+        // Resolve the sql/ folder whether we're running from a dev bin/ output
+        // (sql lives up the tree) or a published image (sql is copied next to
+        // the dll via the .csproj Content include). First match wins.
+        var sqlCandidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "sql"),
+            Path.Combine(app.Environment.ContentRootPath, "sql"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "sql"),
+        };
+        var sqlDir = sqlCandidates.FirstOrDefault(Directory.Exists) ?? sqlCandidates[0];
         var migrationFile = Path.Combine(sqlDir, "migrate_new_features.sql");
 
         if (File.Exists(migrationFile))
@@ -144,12 +176,18 @@ var app = builder.Build();
                 var sql = await File.ReadAllTextAsync(migrationFile);
                 await using var cmd = new Npgsql.NpgsqlCommand(sql, conn);
                 await cmd.ExecuteNonQueryAsync();
-                Console.WriteLine("Migration applied: migrate_new_features.sql");
+                startupLogger.LogInformation("Migration applied: migrate_new_features.sql");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Migration note: {ex.Message}");
+                // Non-fatal so the app can still boot, but log loudly — a failed
+                // prod migration must be visible, not swallowed as a "note".
+                startupLogger.LogError(ex, "Migration FAILED: migrate_new_features.sql. The database schema may be inconsistent.");
             }
+        }
+        else
+        {
+            startupLogger.LogWarning("Migration file not found at {Path}. Skipping startup migration.", migrationFile);
         }
 
         // Seed demo data — only in Development
@@ -169,19 +207,69 @@ var app = builder.Build();
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Seed note: {ex.Message}");
+                    startupLogger.LogWarning(ex, "Demo seed note (non-Production only).");
                 }
             }
         }
     }
 }
 
+// Honor proxy headers first so downstream middleware sees the real client IP/scheme.
+app.UseForwardedHeaders();
+
+// Global exception handler: log the real error server-side, return a generic
+// ProblemDetails to the client. Prevents leaking ex.Message / SQL / stack detail.
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("UnhandledException");
+        logger.LogError(feature?.Error, "Unhandled exception on {Path}", feature?.Path);
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { message = "An unexpected error occurred. Please try again later." });
+    });
+});
+
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 
+// Baseline security headers on every response.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["X-XSS-Protection"] = "0";
+    await next();
+});
+
 app.UseCors("Frontend");
+
+// Lightweight liveness + DB readiness probes for the load balancer / platform.
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health/db", async (IConfiguration cfg) =>
+{
+    try
+    {
+        var cs = cfg.GetConnectionString("WebApiDatabase");
+        await using var c = new Npgsql.NpgsqlConnection(cs);
+        await c.OpenAsync();
+        await using var cmd = new Npgsql.NpgsqlCommand("SELECT 1", c);
+        await cmd.ExecuteScalarAsync();
+        return Results.Ok(new { status = "ok", database = "reachable" });
+    }
+    catch
+    {
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    }
+});
 
 // Ensure CORS headers are present on all responses, including 401/500
 app.Use(async (context, next) =>

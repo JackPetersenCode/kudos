@@ -15,11 +15,13 @@ namespace kudos.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IConfiguration configuration, EmailService emailService)
+        public AuthController(IConfiguration configuration, EmailService emailService, ILogger<AuthController> logger)
         {
             _configuration = configuration;
             _emailService = emailService;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -29,6 +31,19 @@ namespace kudos.Controllers
             {
                 if (!request.AcceptedTerms)
                     return BadRequest("You must accept the Terms of Service and Privacy Policy to create an account.");
+
+                // Basic input validation (previously any email format / 1-char password was accepted).
+                var email = request.Email?.Trim() ?? "";
+                if (!IsValidEmail(email))
+                    return BadRequest("Please enter a valid email address.");
+
+                if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
+                    return BadRequest("Password must be at least 8 characters long.");
+
+                if (request.Password.Length > 200)
+                    return BadRequest("Password is too long.");
+
+                request.Email = email;
 
                 var connStr = _configuration.GetConnectionString("WebApiDatabase");
 
@@ -87,7 +102,8 @@ namespace kudos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error in {Action}", nameof(Register));
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
 
@@ -136,7 +152,8 @@ namespace kudos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error in {Action}", nameof(Login));
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
 
@@ -168,7 +185,8 @@ namespace kudos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error in {Action}", nameof(VerifyEmail));
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
 
@@ -205,7 +223,8 @@ namespace kudos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error in {Action}", nameof(ForgotPassword));
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
 
@@ -243,7 +262,23 @@ namespace kudos.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error in {Action}", nameof(ResetPassword));
+                return StatusCode(500, "An unexpected error occurred.");
+            }
+        }
+
+        private static bool IsValidEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || email.Length > 254)
+                return false;
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email && email.Contains('.') && email.IndexOf('@') > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 

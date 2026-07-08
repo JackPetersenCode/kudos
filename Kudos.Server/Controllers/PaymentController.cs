@@ -15,12 +15,14 @@ namespace Kudos.Server.Controllers
         private readonly IConfiguration _configuration;
         private readonly OpenAIService _openAi;
         private readonly PushNotificationService _push;
+        private readonly ILogger<PaymentController> _logger;
 
-        public PaymentController(IConfiguration configuration, OpenAIService openAi, PushNotificationService push)
+        public PaymentController(IConfiguration configuration, OpenAIService openAi, PushNotificationService push, ILogger<PaymentController> logger)
         {
             _configuration = configuration;
             _openAi = openAi;
             _push = push;
+            _logger = logger;
         }
 
         /// <summary>
@@ -97,7 +99,12 @@ namespace Kudos.Server.Controllers
                 };
 
                 var service = new PaymentIntentService();
-                var paymentIntent = await service.CreateAsync(options);
+                // Idempotency key keyed on the campaign so a retried request
+                // reuses the same PaymentIntent instead of creating a duplicate hold.
+                var paymentIntent = await service.CreateAsync(options, new RequestOptions
+                {
+                    IdempotencyKey = $"create-hold_{request.CampaignId}"
+                });
 
                 // Store payment intent ID on campaign
                 var updateSql = """
@@ -122,11 +129,13 @@ namespace Kudos.Server.Controllers
             }
             catch (StripeException ex)
             {
-                return StatusCode(400, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreatePaymentHold));
+                return StatusCode(400, new { message = "Payment could not be processed." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreatePaymentHold));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -204,25 +213,44 @@ namespace Kudos.Server.Controllers
                         }
                         catch (StripeException ex)
                         {
+                            // Non-fatal: the ad is still rejected and won't run. Log so the
+                            // dangling authorization can be reconciled (it auto-expires in ~7 days).
+                            _logger.LogError(ex, "Failed to cancel payment hold {PaymentIntentId} for rejected ad {AdId}", paymentIntentId, adId);
                         }
                     }
                 }
                 else
                 {
-                    newStatus = "active";
-
-                    // Capture the payment — user is charged
-                    if (!string.IsNullOrWhiteSpace(paymentIntentId) && !string.IsNullOrWhiteSpace(stripeKey))
+                    // Capture the payment BEFORE marking the ad active. If capture fails
+                    // we must NOT activate the ad (previously it went live unpaid).
+                    if (string.IsNullOrWhiteSpace(paymentIntentId) || string.IsNullOrWhiteSpace(stripeKey))
                     {
-                        try
+                        _logger.LogError("Cannot capture payment for ad {AdId}: missing payment intent or Stripe key.", adId);
+                        return StatusCode(StatusCodes.Status402PaymentRequired, new
                         {
-                            StripeConfiguration.ApiKey = stripeKey;
-                            var piService = new PaymentIntentService();
-                            await piService.CaptureAsync(paymentIntentId);
-                        }
-                        catch (StripeException ex)
+                            message = "Payment could not be processed. Your ad was not activated. Please try again."
+                        });
+                    }
+
+                    try
+                    {
+                        StripeConfiguration.ApiKey = stripeKey;
+                        var piService = new PaymentIntentService();
+                        await piService.CaptureAsync(paymentIntentId, null, new RequestOptions
                         {
-                        }
+                            IdempotencyKey = $"capture_{paymentIntentId}"
+                        });
+                        newStatus = "active";
+                    }
+                    catch (StripeException ex)
+                    {
+                        // Charge failed → leave the ad inactive and tell the user.
+                        // The ad status is left unchanged (not "active"); no unpaid ad goes live.
+                        _logger.LogError(ex, "Payment capture FAILED for ad {AdId}, intent {PaymentIntentId}. Ad not activated.", adId, paymentIntentId);
+                        return StatusCode(StatusCodes.Status402PaymentRequired, new
+                        {
+                            message = "We couldn't complete the payment, so your ad was not activated. Please check your payment method and try again."
+                        });
                     }
                 }
 
@@ -290,7 +318,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ConfirmHold));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 

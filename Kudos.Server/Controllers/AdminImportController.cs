@@ -8,7 +8,7 @@ namespace Kudos.Server.Controllers
 {
     [ApiController]
     [Route("api/admin/import")]
-    [Authorize]
+    [Authorize(Roles = "admin")]
     public class AdminImportController : ControllerBase
     {
         private readonly IConfiguration _configuration;
@@ -16,19 +16,22 @@ namespace Kudos.Server.Controllers
         private readonly YelpImportService _yelpImport;
         private readonly YelpDatasetImportService _yelpDatasetImport;
         private readonly OpenStreetMapImportService _osmImport;
+        private readonly ILogger<AdminImportController> _logger;
 
         public AdminImportController(
             IConfiguration configuration,
             IServiceProvider serviceProvider,
             YelpImportService yelpImport,
             YelpDatasetImportService yelpDatasetImport,
-            OpenStreetMapImportService osmImport)
+            OpenStreetMapImportService osmImport,
+            ILogger<AdminImportController> logger)
         {
             _configuration = configuration;
             _serviceProvider = serviceProvider;
             _yelpImport = yelpImport;
             _yelpDatasetImport = yelpDatasetImport;
             _osmImport = osmImport;
+            _logger = logger;
         }
 
         [HttpPost("yelp")]
@@ -73,7 +76,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportFromYelp));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -121,11 +125,13 @@ namespace Kudos.Server.Controllers
             }
             catch (FileNotFoundException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportFromYelpDataset));
+                return BadRequest(new { message = "An unexpected error occurred." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportFromYelpDataset));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -199,7 +205,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportAllCitiesFromOsm));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -243,7 +250,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportFromOpenStreetMap));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -325,7 +333,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CleanupBadData));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -714,7 +723,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportYelpDatasetUpsert));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -927,7 +937,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ImportYelpPhotos));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1022,7 +1033,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(BackfillStreetViewPhotos));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1062,7 +1074,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetImportStats));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
         [HttpPost("upload-placeholders")]
@@ -1111,7 +1124,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UploadPlaceholders));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

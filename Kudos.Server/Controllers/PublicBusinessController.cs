@@ -145,10 +145,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(GetBusinessBySlug));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -200,10 +201,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(GetBusinessHours));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -257,10 +259,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(GetBusinessPhotos));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -626,10 +629,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(GetBusinessReviews));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -949,12 +953,13 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateReview));
                 await CleanupUploadedReviewPhotosAsync(request.Photos);
 
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -1271,11 +1276,12 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateReview));
                 await CleanupUploadedReviewPhotosAsync(request.Photos);
 
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
+                    message = "An unexpected error occurred.",
 
                 });
             }
@@ -1404,10 +1410,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(DeleteReview));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }
@@ -1508,7 +1515,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(FlagReview));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

@@ -11,10 +11,12 @@ namespace Kudos.Server.Controllers
     public class DashboardController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<DashboardController> _logger;
 
-        public DashboardController(IConfiguration configuration)
+        public DashboardController(IConfiguration configuration, ILogger<DashboardController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet("activity")]
@@ -174,10 +176,11 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in {Action}", nameof(GetActivity));
                 return StatusCode(500, new
                 {
-                    message = ex.Message,
-                    
+                    message = "An unexpected error occurred.",
+
                 });
             }
         }

@@ -12,10 +12,12 @@ namespace Kudos.Server.Controllers
     public class StaffController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<StaffController> _logger;
 
-        public StaffController(IConfiguration configuration)
+        public StaffController(IConfiguration configuration, ILogger<StaffController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -134,7 +136,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetStaffMembers));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -194,7 +197,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateStaffMember));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -254,7 +258,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateStaffMember));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -308,7 +313,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(DeleteStaffMember));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -402,7 +408,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetStaffKudos));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -491,7 +498,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateStaffKudos));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

@@ -19,9 +19,12 @@ namespace Kudos.Server.Controllers
             ("Entertainment & Recreation", "entertainment-recreation"),
         ];
 
-        public HomepageController(IConfiguration configuration)
+        private readonly ILogger<HomepageController> _logger;
+
+        public HomepageController(IConfiguration configuration, ILogger<HomepageController> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpGet("category-slides")]
@@ -143,7 +146,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetCategorySlides));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -200,7 +204,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetTrending));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -251,7 +256,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetRecentlyAdded));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }

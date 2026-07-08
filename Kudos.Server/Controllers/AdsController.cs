@@ -17,12 +17,14 @@ namespace Kudos.Server.Controllers
         private readonly IConfiguration _configuration;
         private readonly IAmazonS3 _s3;
         private readonly CloudflareR2Options _r2;
+        private readonly ILogger<AdsController> _logger;
 
-        public AdsController(IConfiguration configuration, IAmazonS3 s3, IOptions<CloudflareR2Options> r2Options)
+        public AdsController(IConfiguration configuration, IAmazonS3 s3, IOptions<CloudflareR2Options> r2Options, ILogger<AdsController> logger)
         {
             _configuration = configuration;
             _s3 = s3;
             _r2 = r2Options.Value;
+            _logger = logger;
         }
 
         [HttpGet("mine")]
@@ -93,7 +95,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetMyAds));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -165,7 +168,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetMyAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -252,7 +256,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetMyAdCampaigns));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -404,7 +409,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetMyCampaign));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -511,7 +517,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -583,7 +590,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -721,7 +729,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateCampaign));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -875,7 +884,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateCampaign));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -975,7 +985,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ResubmitAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1013,7 +1024,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(DeleteAd));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1061,7 +1073,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(UpdateCampaignBudget));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1105,7 +1118,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(ToggleCampaign));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1262,7 +1276,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(GetAdPerformance));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
 
@@ -1337,7 +1352,8 @@ namespace Kudos.Server.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                _logger.LogError(ex, "Error in {Action}", nameof(CreateAdImageUploadUrl));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
     }
