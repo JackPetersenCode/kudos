@@ -4,6 +4,10 @@
     "slug": "reputater-mobile",
     "scheme": "reputater",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "REPLACE_WITH_EAS_ACCOUNT_OWNER",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,11 +18,15 @@
       "backgroundColor": "#1a1a2e"
     },
     "extra": {
-      "apiBaseUrl": "https://kudos-production.up.railway.app/api"
+      "apiBaseUrl": "https://kudos-production.up.railway.app/api",
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.reputater.app",
+      "buildNumber": "1",
       "associatedDomains": [
         "applinks:reputater.com",
         "applinks:www.reputater.com"
@@ -30,6 +38,7 @@
     },
     "android": {
       "package": "com.reputater.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

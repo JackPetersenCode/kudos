@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
@@ -40,9 +41,19 @@ export async function getPushToken(): Promise<string | null> {
     });
   }
 
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId) {
+    console.warn(
+      "[pushNotifications] No EAS projectId found — cannot fetch Expo push token. " +
+        "Run `eas init` and set extra.eas.projectId in app.json.",
+    );
+    return null;
+  }
+
   try {
     // Returns Expo push token like: ExponentPushToken[xxxx]
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data;
   } catch {
     return null;
