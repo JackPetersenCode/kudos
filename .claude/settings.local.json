@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:www.namecheap.com)"
+      "WebFetch(domain:www.namecheap.com)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

@@ -1,0 +1,26 @@
+# Never ship secrets or dev config into the image
+.env
+.env.*
+appsettings.Development.json
+appsettings.*.Development.json
+
+# Build artifacts (rebuilt inside the image)
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Node tooling that isn't needed by the .NET build
+node_modules/
+package.json
+package-lock.json
+
+# VCS / IDE / OS
+.git/
+.gitignore
+.vs/
+.idea/
+*.user
+
+# Local data / docs not needed at runtime
+sql/seed_demo_data.sql
