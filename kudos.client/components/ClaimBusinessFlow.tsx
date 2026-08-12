@@ -206,7 +206,7 @@ export default function ClaimBusinessFlow({ businessId, onClaimed }: Props) {
             )}
 
             {methods.includes("sms") && (
-              <button onClick={handleSendSmsCode} disabled={sending} className="btn-outline" style={{ textAlign: "left", padding: 16 }}>
+              <button onClick={() => setStep("sms")} className="btn-outline" style={{ textAlign: "left", padding: 16 }}>
                 <div style={{ fontWeight: 700 }}>Phone Verification</div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
                   We&apos;ll text a code to {bizPhone ?? "the business phone number"}
@@ -244,6 +244,45 @@ export default function ClaimBusinessFlow({ businessId, onClaimed }: Props) {
 
           <div style={{ display: "flex", gap: 12 }}>
             <button onClick={handleSendEmailCode} disabled={sending} className="btn-accent">
+              {sending ? "Sending..." : "Send Code"}
+            </button>
+            <button onClick={() => setStep("choose")} className="btn-ghost">Back</button>
+          </div>
+        </>
+      )}
+
+      {/* SMS consent + send */}
+      {step === "sms" && (
+        <>
+          <h3 style={{ marginTop: 0 }}>Phone Verification</h3>
+          <p style={{ color: "var(--color-text-secondary)", marginTop: 0 }}>
+            We&apos;ll text a one-time 6-digit verification code to{" "}
+            <strong>{bizPhone ?? "the business phone number on file"}</strong>.
+          </p>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--color-text-muted)",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 12,
+              lineHeight: 1.6,
+            }}
+          >
+            By tapping <strong>Send Code</strong>, you consent to receive a one-time SMS
+            verification code at this number. One message is sent per claim attempt.
+            Message and data rates may apply. Reply <strong>STOP</strong> to opt out or{" "}
+            <strong>HELP</strong> for help. See our{" "}
+            <a href="/sms-consent" target="_blank" rel="noopener noreferrer">SMS Terms</a>{" "}
+            and{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          </div>
+
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={handleSendSmsCode} disabled={sending} className="btn-accent">
               {sending ? "Sending..." : "Send Code"}
             </button>
             <button onClick={() => setStep("choose")} className="btn-ghost">Back</button>

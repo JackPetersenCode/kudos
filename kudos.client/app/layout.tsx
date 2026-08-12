@@ -42,6 +42,7 @@ export default function RootLayout({
                 <a href="/privacy" style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}>Privacy Policy</a>
                 <a href="/terms" style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}>Terms of Service</a>
                 <a href="/dmca" style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}>DMCA</a>
+                <a href="/sms-consent" style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}>SMS Terms</a>
                 <a href="/do-not-sell" style={{ color: "var(--color-text-secondary)", textDecoration: "none" }}>Do Not Sell My Info</a>
               </div>
               <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 8 }}>
