@@ -111,12 +111,13 @@ export default function SmsConsentPage() {
         <h2>Data sharing</h2>
         <p>
           <strong>
-            Mobile phone numbers and consent to receive SMS are not shared with or sold to any third parties
-            for marketing or promotional purposes.
+            Mobile information and messaging consent are not shared with third parties or affiliates for marketing
+            or promotional purposes.
           </strong>{" "}
-          Phone numbers are transmitted only to Twilio, Inc., our SMS service provider, solely for the purpose
-          of delivering the verification code requested by the user. See our{" "}
-          <Link href="/privacy">Privacy Policy</Link> for full details.
+          No mobile information — including phone numbers and SMS opt-in consent — is sold, rented, or shared with any
+          third parties or affiliates for their own marketing or promotional purposes. Phone numbers are transmitted
+          only to Twilio, Inc., our SMS service provider, solely for the purpose of delivering the verification code
+          requested by the user. See our <Link href="/privacy">Privacy Policy</Link> for full details.
         </p>
       </section>
 

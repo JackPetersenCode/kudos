@@ -149,7 +149,7 @@ export default function TermsOfServicePage() {
           <li><strong>Message frequency:</strong> One (1) message is sent per claim attempt that you initiate. Codes expire after 10 minutes.</li>
           <li><strong>Cost:</strong> Message and data rates may apply. Standard carrier messaging and data rates apply to messages you receive.</li>
           <li><strong>Opt-out:</strong> Reply <strong>STOP</strong> to any message to opt out and stop receiving further SMS. Reply <strong>HELP</strong> for assistance, or email support@reputater.com.</li>
-          <li><strong>Privacy:</strong> Mobile phone numbers and your consent to receive SMS are not shared with or sold to any third parties for marketing or promotional purposes. Numbers are transmitted only to our SMS provider (Twilio, Inc.) to deliver the code you requested. See our <a href="/privacy">Privacy Policy</a>.</li>
+          <li><strong>Privacy:</strong> Mobile information and messaging consent are not shared with third parties or affiliates for marketing or promotional purposes. No mobile information — including phone numbers and SMS opt-in consent — is sold, rented, or shared with any third parties or affiliates for their own marketing or promotional purposes. Numbers are transmitted only to our SMS provider (Twilio, Inc.) to deliver the code you requested. See our <a href="/privacy">Privacy Policy</a>.</li>
           <li><strong>Carrier disclaimer:</strong> Mobile carriers are not liable for delayed or undelivered messages.</li>
         </ul>
       </section>

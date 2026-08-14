@@ -76,10 +76,12 @@ export default function PrivacyPolicyPage() {
             and data rates apply to messages sent to your mobile number.
           </li>
           <li>
-            <strong>Mobile information sharing:</strong> Mobile phone numbers and the consent to receive SMS are
-            <strong> not shared with or sold to any third parties for marketing or promotional purposes</strong>.
-            Phone numbers are transmitted only to Twilio, Inc., our SMS service provider, solely to deliver the
-            verification code you requested.
+            <strong>Mobile information sharing:</strong>{" "}
+            <strong>Mobile information and messaging consent are not shared with third parties or affiliates for
+            marketing or promotional purposes.</strong> No mobile information — including your phone number and your
+            SMS opt-in — is sold, rented, or shared with any third parties or affiliates for their own marketing or
+            promotional purposes. Phone numbers are transmitted only to Twilio, Inc., our SMS service provider, solely
+            to deliver the verification code you requested.
           </li>
           <li>
             <strong>Opt-out:</strong> You may opt out at any time by replying <strong>STOP</strong> to any verification
