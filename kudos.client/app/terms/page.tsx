@@ -115,7 +115,7 @@ export default function TermsOfServicePage() {
 
       <section>
         <h2>11. Limitation of Liability</h2>
-        <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, PETERSEN SOFTWARE SOLUTIONS LLC AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM (A) YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICE; (B) ANY CONTENT OBTAINED FROM THE SERVICE; (C) UNAUTHORIZED ACCESS, USE, OR ALTERATION OF YOUR CONTENT OR TRANSMISSIONS.</p>
+        <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, MAMA DOG LLC AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM (A) YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE SERVICE; (B) ANY CONTENT OBTAINED FROM THE SERVICE; (C) UNAUTHORIZED ACCESS, USE, OR ALTERATION OF YOUR CONTENT OR TRANSMISSIONS.</p>
         <p>OUR TOTAL LIABILITY FOR ALL CLAIMS RELATED TO THE SERVICE SHALL NOT EXCEED THE GREATER OF $100 OR THE AMOUNT YOU PAID US IN THE 12 MONTHS PRECEDING THE CLAIM.</p>
       </section>
 
@@ -141,7 +141,21 @@ export default function TermsOfServicePage() {
       </section>
 
       <section>
-        <h2>16. Contact</h2>
+        <h2>16. SMS/Text Messaging Program Terms</h2>
+        <p>These messaging terms govern the SMS messages Reputater sends. By opting in as described below, you agree to them.</p>
+        <ul>
+          <li><strong>Program description:</strong> Reputater sends transactional, one-time verification codes for the sole purpose of confirming that a user owns or is authorized to manage a business listing. We do not send marketing, promotional, or recurring messages.</li>
+          <li><strong>Consent / opt-in:</strong> Messages are sent only when a signed-in user explicitly initiates phone verification in the business claim flow and taps &quot;Send Code.&quot; That affirmative tap is your consent to receive a one-time verification code at the phone number on file for the business. Full opt-in details are documented at <a href="/sms-consent">/sms-consent</a>.</li>
+          <li><strong>Message frequency:</strong> One (1) message is sent per claim attempt that you initiate. Codes expire after 10 minutes.</li>
+          <li><strong>Cost:</strong> Message and data rates may apply. Standard carrier messaging and data rates apply to messages you receive.</li>
+          <li><strong>Opt-out:</strong> Reply <strong>STOP</strong> to any message to opt out and stop receiving further SMS. Reply <strong>HELP</strong> for assistance, or email support@reputater.com.</li>
+          <li><strong>Privacy:</strong> Mobile phone numbers and your consent to receive SMS are not shared with or sold to any third parties for marketing or promotional purposes. Numbers are transmitted only to our SMS provider (Twilio, Inc.) to deliver the code you requested. See our <a href="/privacy">Privacy Policy</a>.</li>
+          <li><strong>Carrier disclaimer:</strong> Mobile carriers are not liable for delayed or undelivered messages.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>17. Contact</h2>
         <p>For questions about these Terms, contact:</p>
         <p>
           Mama Dog LLC<br />
