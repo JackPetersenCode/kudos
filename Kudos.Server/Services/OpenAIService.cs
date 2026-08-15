@@ -1,4 +1,6 @@
+using OpenAI;
 using OpenAI.Chat;
+using System.ClientModel;
 
 namespace Kudos.Server.Services
 {
@@ -23,7 +25,15 @@ namespace Kudos.Server.Services
                 );
             }
 
-            _client = new ChatClient(model: "gpt-4o", apiKey);
+            // Bound the network timeout so a slow or unresponsive OpenAI fails fast
+            // instead of hanging user-facing requests (e.g. posting a review). This
+            // applies per attempt; System.ClientModel still auto-retries transient failures.
+            var options = new OpenAIClientOptions
+            {
+                NetworkTimeout = TimeSpan.FromSeconds(15)
+            };
+
+            _client = new ChatClient(model: "gpt-4o", new ApiKeyCredential(apiKey), options);
         }
 
         public async Task<AdReviewResult> ReviewAd(string title, string? headline, string? description, string? imageUrl, string destinationUrl)
