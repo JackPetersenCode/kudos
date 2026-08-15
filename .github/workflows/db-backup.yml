@@ -1,0 +1,56 @@
+name: DB Backup
+
+# Nightly off-site backup of the production Postgres to a PRIVATE Cloudflare R2
+# bucket. Runs pg_dump 18 (matching Railway's server version) inside a container
+# so the runner's client version doesn't matter, then uploads via the S3 API.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   PROD_DATABASE_URL     Railway Postgres DATABASE_PUBLIC_URL
+#   R2_ACCOUNT_ID         Cloudflare account id
+#   R2_ACCESS_KEY_ID      R2 S3 API token with access to the backup bucket
+#   R2_SECRET_ACCESS_KEY  ^ secret
+#   R2_BACKUP_BUCKET      name of a PRIVATE R2 bucket (NOT the public images bucket)
+#
+# Retention: set a lifecycle rule on the backup bucket (e.g. delete after 30 days).
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC daily (~2-3am US)
+  workflow_dispatch: {}    # allow manual runs (use this to test)
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump prod and upload to R2
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BACKUP_BUCKET: ${{ secrets.R2_BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          TS=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          FILE="reputater-${TS}.dump"
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          echo "Dumping production database with pg_dump 18..."
+          # URL passed via container env so it never appears in the process args.
+          docker run --rm -e PGURL="$PROD_DATABASE_URL" postgres:18 \
+            sh -c 'pg_dump -Fc "$PGURL"' > "$FILE"
+
+          # Guard against a silent/empty dump.
+          test -s "$FILE"
+          echo "Dump OK: $(du -h "$FILE" | cut -f1)"
+
+          echo "Uploading to r2://${R2_BACKUP_BUCKET}/db-backups/${FILE}"
+          aws s3 cp "$FILE" "s3://${R2_BACKUP_BUCKET}/db-backups/${FILE}" \
+            --endpoint-url "$ENDPOINT"
+
+          echo "Backup complete."
