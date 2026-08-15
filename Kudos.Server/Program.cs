@@ -59,6 +59,12 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
     });
 }
 
+// Stripe: automatically retry transient failures (network errors, 429s, 5xx,
+// lock conflicts). Safe against double-charges because hold/capture calls use
+// idempotency keys. This is a global static and persists across the per-request
+// ApiKey the payment controllers set, so it needs no change to the payment path.
+Stripe.StripeConfiguration.MaxNetworkRetries = 2;
+
 // API keys are loaded from configuration — do not log them
 
 var allowedOrigins = builder.Configuration["App:AllowedOrigins"]?.Split(',', StringSplitOptions.TrimEntries) ?? ["http://localhost:3000"];
