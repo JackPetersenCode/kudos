@@ -145,7 +145,10 @@ builder.Services.AddHttpClient<PushNotificationService>();
 builder.Services.AddScoped<YelpImportService>();
 builder.Services.AddScoped<YelpDatasetImportService>();
 builder.Services.AddScoped<OpenStreetMapImportService>();
-builder.Services.AddHostedService<YelpImportBackgroundJob>();
+// Daily Yelp importer DISABLED: Yelp data (Open Dataset + Fusion API) is not
+// licensed for commercial use, so the catalog is OSM-sourced (ODbL) only.
+// Do NOT re-enable — it would re-import legally unusable data.
+// builder.Services.AddHostedService<YelpImportBackgroundJob>();
 
 var app = builder.Build();
 
