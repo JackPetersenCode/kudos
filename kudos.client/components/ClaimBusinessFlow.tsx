@@ -17,6 +17,10 @@ type InitiateResult = {
   businessPhone?: string | null;
 };
 
+// SMS (phone) claim verification is disabled while Twilio A2P is deferred.
+// Flip to true to restore the SMS option once the A2P campaign is live.
+const SMS_ENABLED = false;
+
 export default function ClaimBusinessFlow({ businessId, onClaimed }: Props) {
   const [step, setStep] = useState<"idle" | "loading" | "choose" | "email" | "sms" | "manual" | "verify" | "done" | "error">("idle");
   const [methods, setMethods] = useState<string[]>([]);
@@ -198,14 +202,17 @@ export default function ClaimBusinessFlow({ businessId, onClaimed }: Props) {
           <div style={{ display: "grid", gap: 10 }}>
             {methods.includes("email") && (
               <button onClick={() => setStep("email")} className="btn-outline" style={{ textAlign: "left", padding: 16 }}>
-                <div style={{ fontWeight: 700 }}>Email Verification</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 700 }}>Email Verification</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-accent)", background: "var(--color-accent-soft, rgba(233,69,96,0.1))", padding: "2px 8px", borderRadius: 999 }}>Recommended</span>
+                </div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
                   We&apos;ll send a code to an email at {bizWebsite ? new URL(bizWebsite.startsWith("http") ? bizWebsite : `https://${bizWebsite}`).hostname.replace("www.", "") : "the business domain"}
                 </div>
               </button>
             )}
 
-            {methods.includes("sms") && (
+            {SMS_ENABLED && methods.includes("sms") && (
               <button onClick={() => setStep("sms")} className="btn-outline" style={{ textAlign: "left", padding: 16 }}>
                 <div style={{ fontWeight: 700 }}>Phone Verification</div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
