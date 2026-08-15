@@ -45,6 +45,20 @@ builder.Configuration
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
+// Error tracking (Sentry) — no-op unless a DSN is configured (Sentry:Dsn / Sentry__Dsn),
+// so it stays inert in dev/CI and turns on the moment a DSN is set in prod.
+var sentryDsn = builder.Configuration["Sentry:Dsn"];
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(o =>
+    {
+        o.Dsn = sentryDsn;
+        o.Environment = builder.Environment.EnvironmentName;
+        o.TracesSampleRate = 0.1;   // 10% performance sampling
+        o.SendDefaultPii = false;   // don't attach user PII / request bodies
+    });
+}
+
 // API keys are loaded from configuration — do not log them
 
 var allowedOrigins = builder.Configuration["App:AllowedOrigins"]?.Split(',', StringSplitOptions.TrimEntries) ?? ["http://localhost:3000"];

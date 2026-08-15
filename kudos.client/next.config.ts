@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -114,4 +115,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry. Events are routed through a same-origin tunnel
+// (/monitoring) so the strict CSP connect-src ('self') doesn't block them and
+// ad-blockers don't drop them. Source-map upload is skipped unless a SENTRY
+// auth token is present, so builds work without extra CI secrets.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+  tunnelRoute: "/monitoring",
+});
+
