@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System.Security.Claims;
+using Kudos.Server.Services;
 using Twilio;
 using Twilio.Rest.Api.V2010.Account;
 
@@ -13,11 +14,13 @@ namespace Kudos.Server.Controllers
     public class ClaimVerificationController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly EmailService _emailService;
         private readonly ILogger<ClaimVerificationController> _logger;
 
-        public ClaimVerificationController(IConfiguration configuration, ILogger<ClaimVerificationController> logger)
+        public ClaimVerificationController(IConfiguration configuration, EmailService emailService, ILogger<ClaimVerificationController> logger)
         {
             _configuration = configuration;
+            _emailService = emailService;
             _logger = logger;
         }
 
@@ -218,6 +221,17 @@ namespace Kudos.Server.Controllers
                     cmd.Parameters.AddWithValue("@verify_email", request.VerificationEmail!);
                     cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
                     await cmd.ExecuteNonQueryAsync();
+                }
+
+                // Actually deliver the code to the business-domain email.
+                try
+                {
+                    await _emailService.SendClaimVerificationCode(request.VerificationEmail!, code);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send claim verification email to {Email} for business {BusinessId}", request.VerificationEmail, businessId);
+                    return StatusCode(500, new { message = "Could not send the verification email. Please try again or choose another verification method." });
                 }
 
                 _logger.LogInformation("Claim verification code sent for business {BusinessId} to {Email}", businessId, request.VerificationEmail);
