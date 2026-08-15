@@ -25,7 +25,7 @@ namespace Kudos.Server.Controllers
         {
             try
             {
-                if (!IsAdmin())
+                if (!await IsAdminAsync())
                 {
                     return Forbid();
                 }
@@ -93,7 +93,7 @@ namespace Kudos.Server.Controllers
         {
             try
             {
-                if (!IsAdmin())
+                if (!await IsAdminAsync())
                 {
                     return Forbid();
                 }
@@ -176,7 +176,7 @@ namespace Kudos.Server.Controllers
         {
             try
             {
-                if (!IsAdmin())
+                if (!await IsAdminAsync())
                 {
                     return Forbid();
                 }
@@ -275,12 +275,23 @@ namespace Kudos.Server.Controllers
             }
         }
 
-        private bool IsAdmin()
+        private async Task<bool> IsAdminAsync()
         {
-            var role =
-                User.FindFirst(ClaimTypes.Role)?.Value ??
-                User.FindFirst("role")?.Value;
+            // Re-verify the role against the DB rather than trusting the JWT role
+            // claim (which lives up to 7 days), so a demoted admin loses access
+            // immediately instead of keeping it until the token expires.
+            var email =
+                User.FindFirst(ClaimTypes.Email)?.Value ??
+                User.FindFirst(ClaimTypes.Name)?.Value ??
+                User.Identity?.Name;
 
+            if (string.IsNullOrWhiteSpace(email)) return false;
+
+            await using var connection = new NpgsqlConnection(GetConnectionString());
+            await connection.OpenAsync();
+            await using var cmd = new NpgsqlCommand("SELECT role FROM users WHERE email = @email LIMIT 1;", connection);
+            cmd.Parameters.AddWithValue("@email", email);
+            var role = (await cmd.ExecuteScalarAsync()) as string;
             return string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase);
         }
 
