@@ -160,7 +160,7 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 builder.Services.AddSingleton<OpenAIService>();
-builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpClient<EmailService>(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHttpClient<PushNotificationService>();
 builder.Services.AddScoped<YelpImportService>();
 builder.Services.AddScoped<YelpDatasetImportService>();

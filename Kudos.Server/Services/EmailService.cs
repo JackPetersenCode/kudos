@@ -1,27 +1,30 @@
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace Kudos.Server.Services
 {
     public class EmailService
     {
+        private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(HttpClient httpClient, IConfiguration configuration, ILogger<EmailService> logger)
         {
+            _httpClient = httpClient;
             _configuration = configuration;
             _logger = logger;
         }
 
         public async Task SendAsync(string toEmail, string subject, string htmlBody)
         {
-            var apiKey = _configuration["SendGrid:ApiKey"];
+            var apiKey = _configuration["Resend:ApiKey"];
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                // Fallback: log to console in development
-                _logger.LogWarning("SendGrid not configured. Email logged to console.");
+                // Fallback: log to console when email isn't configured (dev/CI).
+                _logger.LogWarning("Resend not configured. Email logged to console.");
                 Console.WriteLine($"=== EMAIL ===");
                 Console.WriteLine($"To: {toEmail}");
                 Console.WriteLine($"Subject: {subject}");
@@ -30,24 +33,28 @@ namespace Kudos.Server.Services
                 return;
             }
 
-            var client = new SendGridClient(apiKey);
-            var fromEmail = _configuration["SendGrid:FromEmail"] ?? "noreply@reputater.com";
-            var fromName = _configuration["SendGrid:FromName"] ?? "Reputater";
+            var fromEmail = _configuration["Resend:FromEmail"] ?? "noreply@reputater.com";
+            var fromName = _configuration["Resend:FromName"] ?? "Reputater";
 
-            var msg = MailHelper.CreateSingleEmail(
-                new EmailAddress(fromEmail, fromName),
-                new EmailAddress(toEmail),
+            var payload = new
+            {
+                from = $"{fromName} <{fromEmail}>",
+                to = new[] { toEmail },
                 subject,
-                null,
-                htmlBody
-            );
+                html = htmlBody
+            };
 
-            var response = await client.SendEmailAsync(msg);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
-                var body = await response.Body.ReadAsStringAsync();
-                _logger.LogError("SendGrid failed: {StatusCode} {Body}", response.StatusCode, body);
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Resend send failed: {StatusCode} {Body}", (int)response.StatusCode, body);
             }
         }
 
