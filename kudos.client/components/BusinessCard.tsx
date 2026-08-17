@@ -30,6 +30,8 @@ export default function BusinessCard({ business }: Props) {
           <img
             src={src}
             alt={business.name}
+            loading="lazy"
+            decoding="async"
             onError={() => {
               if (src !== placeholderUrl) setSrc(placeholderUrl);
             }}

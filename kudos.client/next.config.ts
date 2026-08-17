@@ -85,6 +85,14 @@ function buildCsp(): string {
 }
 
 const nextConfig: NextConfig = {
+  images: {
+    // Business photos come from R2 and arbitrary external CDNs (imported
+    // listings). Run next/image unoptimized so we get lazy-loading, no layout
+    // shift, and LCP priority hints without proxying every external image
+    // through (and paying for) Vercel's optimizer. Flip this off and add
+    // remotePatterns later if you want format/size optimization for R2 images.
+    unoptimized: true,
+  },
   async headers() {
     return [
       {

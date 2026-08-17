@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import Image from "next/image";
 
 type AppImageProps = {
   src: string;
@@ -10,6 +10,8 @@ type AppImageProps = {
   maxWidth?: number | string;
   background?: string;
   border?: string;
+  /** Set on the largest above-the-fold image (the LCP element) to load it eagerly. */
+  priority?: boolean;
 };
 
 export default function AppImage({
@@ -20,10 +22,12 @@ export default function AppImage({
   maxWidth = "100%",
   background = "#f5f5f5",
   border,
+  priority = false,
 }: AppImageProps) {
   return (
     <div
       style={{
+        position: "relative",
         width: "100%",
         maxWidth,
         height,
@@ -33,15 +37,13 @@ export default function AppImage({
         border,
       }}
     >
-      <img
+      <Image
         src={src}
         alt={alt}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center"
-        }}
+        fill
+        priority={priority}
+        sizes="(max-width: 768px) 100vw, 700px"
+        style={{ objectFit: "cover", objectPosition: "center" }}
       />
     </div>
   );
