@@ -32,7 +32,7 @@ type OwnedBusiness = {
 
 function DashboardContent() {
   const router = useRouter();
-  const { isReady, isAuthenticated } = useAuth();
+  const { token, isReady, isAuthenticated } = useAuth();
 
   const [me, setMe] = useState<(MeResponse & { displayName?: string | null }) | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -55,13 +55,21 @@ function DashboardContent() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadDashboard() {
+  async function loadDashboard(activeToken: string) {
     setError("");
 
     try {
       const [meData, businessesRes, photoData, activityData, badgesData] = await Promise.all([
         getMe(),
-        apiFetch(`/profile/business`, { cache: "no-store" }).then((res) => res.json()),
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/profile/business`, {
+          headers: {
+            Authorization: `Bearer ${activeToken}`,
+          },
+          cache: "no-store",
+        }).then(async (res) => {
+          if (!res.ok) throw new Error(await res.text());
+          return res.json();
+        }),
         getProfilePhoto(),
         getDashboardActivity(),
         getMyBadges().catch(() => []),
@@ -91,10 +99,10 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!isReady) return;
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !token) return;
 
-    loadDashboard();
-  }, [isReady, isAuthenticated]);
+    loadDashboard(token);
+  }, [isReady, isAuthenticated, token]);
 
   async function handleProfilePhotoChange(file: File | null) {
     if (!file) return;

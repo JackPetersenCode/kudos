@@ -7,10 +7,8 @@ function notifyAuthChanged() {
   }
 }
 
-function storeAuth(_token: string, email: string) {
-  // The JWT is stored by the backend in an httpOnly cookie and never touches JS
-  // (so XSS can't steal it). We keep only the non-sensitive email as a UI marker
-  // for "who's signed in" — the cookie is the actual credential.
+function storeAuth(token: string, email: string) {
+  localStorage.setItem("token", token);
   localStorage.setItem("userEmail", email);
   notifyAuthChanged();
 }
@@ -55,8 +53,6 @@ export function logout() {
 
   localStorage.removeItem("token");
   localStorage.removeItem("userEmail");
-  // Clear the httpOnly auth cookie server-side (fire-and-forget).
-  apiFetch("/Auth/logout", { method: "POST" }).catch(() => {});
   notifyAuthChanged();
 }
 

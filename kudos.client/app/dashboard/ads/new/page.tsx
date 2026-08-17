@@ -7,7 +7,6 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import AdForm from "@/components/AdForm";
 import { createAd, createAdCampaign, createPaymentHold, confirmPaymentHold, deleteAd } from "@/lib/ads";
-import { apiFetch } from "@/lib/api";
 
 type BusinessOption = {
   id: string;
@@ -128,7 +127,17 @@ export default function NewAdPage() {
   useEffect(() => {
     async function loadBusinesses() {
       try {
-        const res = await apiFetch(`/Profile/business`, { cache: "no-store" });
+        const token = localStorage.getItem("token");
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/Profile/business`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            cache: "no-store",
+          }
+        );
+
+        if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         setBusinesses(data ?? []);
       } catch (err) {
