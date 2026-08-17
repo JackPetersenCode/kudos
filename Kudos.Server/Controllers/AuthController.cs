@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System.Text;
@@ -90,6 +91,7 @@ namespace kudos.Controllers
                 await _emailService.SendVerificationEmail(request.Email, verifyUrl);
 
                 var token = GenerateJwtToken(request.Email, "user");
+                SetAuthCookie(token);
 
                 return Ok(new
                 {
@@ -142,6 +144,7 @@ namespace kudos.Controllers
                 }
 
                 var token = GenerateJwtToken(request.Email, role);
+                SetAuthCookie(token);
 
                 return Ok(new
                 {
@@ -155,6 +158,59 @@ namespace kudos.Controllers
                 _logger.LogError(ex, "Error in {Action}", nameof(Login));
                 return StatusCode(500, "An unexpected error occurred.");
             }
+        }
+
+        /// <summary>
+        /// Returns the current authenticated user. Lets the browser client know who
+        /// is signed in without reading the (httpOnly) token itself.
+        /// </summary>
+        [Authorize]
+        [HttpGet("me")]
+        public IActionResult Me()
+        {
+            var email = User.FindFirst(ClaimTypes.Email)?.Value
+                        ?? User.FindFirst(ClaimTypes.Name)?.Value
+                        ?? User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email)) return Unauthorized();
+
+            var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "user";
+            return Ok(new { email, role });
+        }
+
+        /// <summary>Clears the auth cookie (browser sign-out).</summary>
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            ClearAuthCookie();
+            return Ok(new { success = true });
+        }
+
+        // Stores the JWT in an httpOnly cookie so browser JS can't read it (XSS
+        // token-theft protection). SameSite=Lax blocks cross-site sending (CSRF)
+        // while still allowing same-site reputater.com -> api.reputater.com calls.
+        // Mobile ignores this and keeps sending the Bearer header.
+        private void SetAuthCookie(string token)
+        {
+            Response.Cookies.Append("token", token, BuildCookieOptions(DateTimeOffset.UtcNow.AddDays(7)));
+        }
+
+        private void ClearAuthCookie()
+        {
+            Response.Cookies.Append("token", "", BuildCookieOptions(DateTimeOffset.UnixEpoch));
+        }
+
+        private CookieOptions BuildCookieOptions(DateTimeOffset expires)
+        {
+            var domain = _configuration["App:CookieDomain"]; // e.g. ".reputater.com" in prod; unset locally
+            return new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,      // true behind the prod HTTPS proxy; false on local http
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                Domain = string.IsNullOrWhiteSpace(domain) ? null : domain,
+                Expires = expires,
+            };
         }
 
         [HttpPost("verify-email")]

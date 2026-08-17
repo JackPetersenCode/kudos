@@ -76,7 +76,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials(); // required so the browser sends/accepts the httpOnly auth cookie
     });
 });
 
@@ -118,6 +119,20 @@ builder.Services
                 Encoding.UTF8.GetBytes(jwtKey)
             ),
             ClockSkew = TimeSpan.Zero
+        };
+        // Browser clients authenticate via the httpOnly "token" cookie; fall back
+        // to it when no Authorization header is present. Mobile keeps using Bearer.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrEmpty(context.Token) &&
+                    context.Request.Cookies.TryGetValue("token", out var cookieToken))
+                {
+                    context.Token = cookieToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
