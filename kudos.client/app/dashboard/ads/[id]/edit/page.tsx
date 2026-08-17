@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdForm from "@/components/AdForm";
 import { getMyAd, updateAd, OwnerAd } from "@/lib/ads";
+import { apiFetch } from "@/lib/api";
 
 type BusinessOption = {
   id: string;
@@ -61,20 +62,10 @@ export default function EditAdPage({ params }: Props) {
 
     async function loadPage() {
       try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
         const [adData, businessesRes] = await Promise.all([
           getMyAd(adId),
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/Profile/business`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            cache: "no-store",
-          }),
+          apiFetch(`/Profile/business`, { cache: "no-store" }),
         ]);
-
-        if (!businessesRes.ok) {
-          throw new Error(await businessesRes.text());
-        }
 
         const businessesData = await businessesRes.json();
 

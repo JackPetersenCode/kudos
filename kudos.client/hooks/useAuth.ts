@@ -3,18 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 
 type AuthState = {
-  token: string | null;
+  userEmail: string | null;
   isAuthenticated: boolean;
   isReady: boolean;
 };
 
+// Auth state is derived from the non-sensitive "userEmail" marker in
+// localStorage. The actual credential (JWT) lives in an httpOnly cookie the
+// browser sends automatically and JS cannot read.
 export function useAuth(): AuthState {
-  const [token, setToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     function syncAuth() {
-      setToken(localStorage.getItem("token"));
+      setUserEmail(localStorage.getItem("userEmail"));
     }
 
     syncAuth();
@@ -31,10 +34,10 @@ export function useAuth(): AuthState {
 
   return useMemo(
     () => ({
-      token,
-      isAuthenticated: !!token,
+      userEmail,
+      isAuthenticated: !!userEmail,
       isReady,
     }),
-    [token, isReady]
+    [userEmail, isReady]
   );
 }

@@ -17,8 +17,9 @@ export default function NavBar() {
 
   useEffect(() => {
     function syncAuth() {
-      const token = localStorage.getItem("token");
-      const loggedIn = !!token;
+      // Signed-in state comes from the non-sensitive userEmail marker; the JWT
+      // itself is an httpOnly cookie JS can't read.
+      const loggedIn = !!localStorage.getItem("userEmail");
       setIsLoggedIn(loggedIn);
       if (loggedIn) {
         getUnreadNotificationCount()
