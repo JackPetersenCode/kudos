@@ -3,8 +3,12 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../contexts/AuthContext";
+import { useNotificationTapRouter } from "../lib/useNotificationTapRouter";
 
 export default function RootLayout() {
+  // Route to the right screen when the app is opened from a tapped notification.
+  useNotificationTapRouter();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
