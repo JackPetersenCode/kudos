@@ -139,8 +139,12 @@ namespace Kudos.Server.Controllers
                         methods.Add("email");
                 }
 
+                // SMS claim verification is off by default (Twilio A2P deferred; email
+                // is the primary method). Re-enable everywhere — web and mobile — by
+                // setting Claims:SmsEnabled=true once the A2P campaign is approved.
+                var smsEnabled = _configuration.GetValue<bool>("Claims:SmsEnabled");
                 var twilioSid = _configuration["Twilio:AccountSid"];
-                if (!string.IsNullOrWhiteSpace(bizPhone) && !string.IsNullOrWhiteSpace(twilioSid))
+                if (smsEnabled && !string.IsNullOrWhiteSpace(bizPhone) && !string.IsNullOrWhiteSpace(twilioSid))
                     methods.Add("sms");
 
                 methods.Add("manual"); // always available
@@ -255,6 +259,9 @@ namespace Kudos.Server.Controllers
             {
                 var email = GetEmail();
                 if (string.IsNullOrWhiteSpace(email)) return Unauthorized();
+
+                if (!_configuration.GetValue<bool>("Claims:SmsEnabled"))
+                    return BadRequest("SMS verification is currently unavailable. Please use email verification.");
 
                 var twilioSid = _configuration["Twilio:AccountSid"];
                 var twilioToken = _configuration["Twilio:AuthToken"];
