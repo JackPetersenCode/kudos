@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Image, Pressable, Alert } from "react-native";
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Image, Pressable, Alert, Platform } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -254,7 +254,8 @@ export default function AdDetailScreen() {
             ))
           )}
 
-          {campaigns.length > 0 && (
+          {/* Apple 3.1.1: no external-purchase link on iOS. */}
+          {Platform.OS !== "ios" && campaigns.length > 0 && (
             <Pressable
               style={styles.payBtn}
               onPress={() => WebBrowser.openBrowserAsync(`https://reputater.com/dashboard/ads/${ad.id}`)}

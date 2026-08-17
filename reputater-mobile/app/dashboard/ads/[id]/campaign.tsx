@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, ActivityIndicator, Platform } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -114,12 +114,19 @@ export default function CampaignEditorScreen() {
       } else {
         await createAdCampaign(adId, payload);
       }
+      // Apple Guideline 3.1.1: iOS apps must not steer users to an external
+      // purchase mechanism. On iOS we don't surface a payment link/CTA — the
+      // campaign is saved and can be paid/managed from the user's web account.
+      // Android keeps the in-app web handoff.
+      const isIos = Platform.OS === "ios";
       Alert.alert(
         isEditing ? "Campaign updated" : "Campaign created",
         isEditing
           ? "Your changes are live."
-          : "Complete payment to start serving this ad.",
-        isEditing
+          : isIos
+            ? "Your ad campaign has been created and saved to your account. You can review and manage your campaigns anytime."
+            : "Complete payment to start serving this ad.",
+        isEditing || isIos
           ? [{ text: "OK", onPress: () => router.back() }]
           : [
               {
@@ -284,7 +291,9 @@ export default function CampaignEditorScreen() {
 
         {!isEditing && (
           <Text style={styles.paymentNote}>
-            After creating, complete payment at reputater.com/dashboard/ads on desktop. Your ad starts serving once payment clears.
+            {Platform.OS === "ios"
+              ? "Your campaign will be saved to your account, where you can review and manage it anytime."
+              : "After creating, complete payment at reputater.com/dashboard/ads on desktop. Your ad starts serving once payment clears."}
           </Text>
         )}
       </ScrollView>
