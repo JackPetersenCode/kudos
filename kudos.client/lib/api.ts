@@ -17,6 +17,8 @@ export async function apiFetch(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    // Send the httpOnly auth cookie (browser clients). Backend CORS allows credentials.
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -26,12 +28,18 @@ export async function apiFetch(
     // (e.g. ReviewForm pops up the sign-in modal).
     // Only do this when we actually sent a token — a 401 from a public
     // endpoint with no token means something else.
-    if (response.status === 401 && token && typeof window !== "undefined") {
-      try {
-        localStorage.removeItem("token");
-        window.dispatchEvent(new Event("auth-changed"));
-      } catch {
-        // ignore storage failures
+    if (response.status === 401 && typeof window !== "undefined") {
+      // Clear stale auth state (token cookie expired / rotated key / user deleted).
+      // Works for both cookie sessions (userEmail marker) and legacy Bearer sessions.
+      const wasAuthed = !!token || !!localStorage.getItem("userEmail");
+      if (wasAuthed) {
+        try {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userEmail");
+          window.dispatchEvent(new Event("auth-changed"));
+        } catch {
+          // ignore storage failures
+        }
       }
     }
 
