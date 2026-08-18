@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import {
   StaffMember,
   StaffKudos,
@@ -8,13 +9,14 @@ import {
   getStaffKudos,
   createStaffKudos,
 } from "@/lib/staff";
+import { TagIcon } from "@/lib/icons";
 
 const STAFF_TAGS = [
-  { key: "friendly", label: "Friendly", icon: "😊" },
-  { key: "knowledgeable", label: "Knowledgeable", icon: "🧠" },
-  { key: "efficient", label: "Efficient", icon: "⚡" },
-  { key: "professional", label: "Professional", icon: "👔" },
-  { key: "went-above-and-beyond", label: "Above & Beyond", icon: "🌟" },
+  { key: "friendly", label: "Friendly" },
+  { key: "knowledgeable", label: "Knowledgeable" },
+  { key: "efficient", label: "Efficient" },
+  { key: "professional", label: "Professional" },
+  { key: "went-above-and-beyond", label: "Above & Beyond" },
 ] as const;
 
 type Props = {
@@ -221,9 +223,10 @@ export default function StaffSection({ businessId }: Props) {
             </h3>
             <button
               onClick={() => setSelectedStaff(null)}
-              style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}
+              aria-label="Close"
+              style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", color: "var(--color-text-secondary)" }}
             >
-              X
+              <X size={20} />
             </button>
           </div>
 
@@ -242,15 +245,21 @@ export default function StaffSection({ businessId }: Props) {
                       type="button"
                       onClick={() => toggleTag(tag.key)}
                       style={{
-                        border: "1px solid #ccc",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        border: `1px solid ${isSelected ? "var(--color-accent)" : "var(--color-border)"}`,
                         borderRadius: 999,
-                        padding: "10px 14px",
-                        background: isSelected ? "#111" : "#fff",
-                        color: isSelected ? "#fff" : "#111",
+                        padding: "9px 14px",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        background: isSelected ? "var(--color-accent-light)" : "var(--color-surface)",
+                        color: isSelected ? "var(--color-accent-hover)" : "var(--color-text)",
                         cursor: "pointer",
+                        transition: "all var(--transition)",
                       }}
                     >
-                      <span style={{ marginRight: 6 }}>{tag.icon}</span>
+                      <TagIcon tagKey={tag.key} size={15} />
                       {tag.label}
                     </button>
                   );

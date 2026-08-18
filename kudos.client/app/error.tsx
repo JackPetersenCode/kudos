@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { Frown } from "lucide-react";
 
 export default function Error({
   error,
@@ -24,7 +25,11 @@ export default function Error({
         paddingBottom: 80,
       }}
     >
-      <div style={{ fontSize: 64, marginBottom: 8 }}>😕</div>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        <span style={{ display: "grid", placeItems: "center", width: 72, height: 72, borderRadius: "50%", background: "var(--color-surface-sink)", color: "var(--color-text-secondary)" }}>
+          <Frown size={36} strokeWidth={1.75} />
+        </span>
+      </div>
       <h1
         style={{
           fontSize: 28,

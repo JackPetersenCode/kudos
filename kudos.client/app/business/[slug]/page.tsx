@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { Heart } from "lucide-react";
+import { TagIcon } from "@/lib/icons";
 import { getTaterLevel } from "@/lib/taterLevel";
 import {
   BusinessHour,
@@ -53,11 +55,11 @@ const DAY_NAMES = [
 ];
 
 const CATEGORY_META = [
-  { key: "service", label: "Service", icon: "🤝" },
-  { key: "quality", label: "Quality", icon: "⭐" },
-  { key: "cleanliness", label: "Cleanliness", icon: "🧼" },
-  { key: "value", label: "Value", icon: "💰" },
-  { key: "experience", label: "Experience", icon: "✨" },
+  { key: "service", label: "Service" },
+  { key: "quality", label: "Quality" },
+  { key: "cleanliness", label: "Cleanliness" },
+  { key: "value", label: "Value" },
+  { key: "experience", label: "Experience" },
 ] as const;
 
 export default function PublicBusinessPage() {
@@ -346,9 +348,10 @@ export default function PublicBusinessPage() {
               <button
                 onClick={handleToggleFavorite}
                 className={isFavorited ? "toggle-btn active" : "toggle-btn"}
-                style={{ padding: "7px 16px" }}
+                style={{ padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: 6 }}
               >
-                {isFavorited ? "♥ Saved" : "♡ Save"}
+                <Heart size={15} fill={isFavorited ? "currentColor" : "none"} />
+                {isFavorited ? "Saved" : "Save"}
               </button>
 
               <button onClick={handleCheckIn} className="toggle-btn" style={{ padding: "7px 16px" }}>
@@ -375,14 +378,17 @@ export default function PublicBusinessPage() {
                 className="toggle-btn"
                 style={{
                   cursor: "default",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                   background: count > 0 ? "var(--color-accent-light)" : undefined,
                   borderColor: count > 0 ? "transparent" : undefined,
-                  color: count > 0 ? "var(--color-accent)" : undefined,
+                  color: count > 0 ? "var(--color-accent-hover)" : undefined,
                 }}
               >
-                <span style={{ marginRight: 6 }}>{category.icon}</span>
+                <TagIcon tagKey={category.key} size={15} />
                 {category.label}
-                <span style={{ marginLeft: 6, fontWeight: 800 }}>{count}</span>
+                <span style={{ marginLeft: 2, fontWeight: 800 }}>{count}</span>
               </div>
             );
           })}
@@ -700,14 +706,10 @@ export default function PublicBusinessPage() {
                         </div>
                         <span style={{ fontWeight: 600 }}>{sr.firstName}</span>
                         {sr.tags.length > 0 && (
-                          <span style={{ color: "var(--color-text-muted)" }}>
-                            {sr.tags.map((t) => {
-                              const icons: Record<string, string> = {
-                                friendly: "😊", knowledgeable: "🧠", efficient: "⚡",
-                                professional: "👔", "went-above-and-beyond": "🌟",
-                              };
-                              return icons[t] || t;
-                            }).join(" ")}
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--color-text-muted)" }}>
+                            {sr.tags.map((t) => (
+                              <TagIcon key={t} tagKey={t} size={15} />
+                            ))}
                           </span>
                         )}
                       </div>
@@ -745,9 +747,10 @@ export default function PublicBusinessPage() {
                   <button
                     onClick={() => handleToggleHelpful(review)}
                     className={review.isMarkedHelpful ? "toggle-btn active" : "toggle-btn"}
-                    style={{ padding: "5px 14px", fontSize: 13 }}
+                    style={{ padding: "5px 14px", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
-                    {review.isMarkedHelpful ? "♥" : "♡"} Helpful ({review.helpfulCount})
+                    <Heart size={14} fill={review.isMarkedHelpful ? "currentColor" : "none"} />
+                    Helpful ({review.helpfulCount})
                   </button>
 
                   {review.isOwnReview ? (

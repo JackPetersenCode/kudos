@@ -10,6 +10,8 @@ import { StaffMember } from "@/lib/staff";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import SignInPromptModal from "@/components/SignInPromptModal";
+import { Check } from "lucide-react";
+import { TagIcon } from "@/lib/icons";
 
 type ReviewFormProps = {
   businessId: string;
@@ -35,19 +37,19 @@ type ReviewFormProps = {
 };
 
 const POSITIVE_CATEGORIES = [
-  { key: "service", label: "Service", icon: "🤝" },
-  { key: "quality", label: "Quality", icon: "⭐" },
-  { key: "cleanliness", label: "Cleanliness", icon: "🧼" },
-  { key: "value", label: "Value", icon: "💰" },
-  { key: "experience", label: "Experience", icon: "✨" },
+  { key: "service", label: "Service" },
+  { key: "quality", label: "Quality" },
+  { key: "cleanliness", label: "Cleanliness" },
+  { key: "value", label: "Value" },
+  { key: "experience", label: "Experience" },
 ] as const;
 
 const STAFF_TAGS = [
-  { key: "friendly", label: "Friendly", icon: "😊" },
-  { key: "knowledgeable", label: "Knowledgeable", icon: "🧠" },
-  { key: "efficient", label: "Efficient", icon: "⚡" },
-  { key: "professional", label: "Professional", icon: "👔" },
-  { key: "went-above-and-beyond", label: "Above & Beyond", icon: "🌟" },
+  { key: "friendly", label: "Friendly" },
+  { key: "knowledgeable", label: "Knowledgeable" },
+  { key: "efficient", label: "Efficient" },
+  { key: "professional", label: "Professional" },
+  { key: "went-above-and-beyond", label: "Above & Beyond" },
 ] as const;
 
 export default function ReviewForm({
@@ -350,8 +352,10 @@ export default function ReviewForm({
                   whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ marginRight: 4 }}>{category.icon}</span>
-                {category.label}
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <TagIcon tagKey={category.key} size={15} />
+                  {category.label}
+                </span>
               </button>
             );
           })}
@@ -516,7 +520,7 @@ export default function ReviewForm({
                     )}
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{member.firstName}</span>
-                  {isSelected && <span style={{ color: "var(--color-accent)", fontSize: 14 }}>✓</span>}
+                  {isSelected && <Check size={15} style={{ color: "var(--color-accent)" }} />}
                 </button>
               );
             })}
@@ -544,9 +548,9 @@ export default function ReviewForm({
                             type="button"
                             onClick={() => toggleStaffTag(staffId, tag.key)}
                             className={active ? "toggle-btn active" : "toggle-btn"}
-                            style={{ padding: "6px 12px", fontSize: 12 }}
+                            style={{ padding: "6px 12px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
                           >
-                            <span style={{ marginRight: 4 }}>{tag.icon}</span>
+                            <TagIcon tagKey={tag.key} size={14} />
                             {tag.label}
                           </button>
                         );

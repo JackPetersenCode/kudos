@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { getTaterLevel } from "@/lib/taterLevel";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { TagIcon } from "@/lib/icons";
 import {
   BusinessReview,
   getBusinessReviews,
@@ -118,7 +120,7 @@ export default function WriteReviewForBusinessPage() {
         <div className="wr-left">
           {hasOwnReview ? (
             <div className="section-card" style={{ textAlign: "center", padding: 32 }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+              <div style={{ marginBottom: 12, display: "flex", justifyContent: "center", color: "var(--color-success)" }}><CheckCircle2 size={40} /></div>
               <h3 style={{ marginBottom: 8 }}>You already reviewed this business</h3>
               <p style={{ color: "var(--color-text-secondary)", marginBottom: 16 }}>
                 You can edit your review on the business page.
@@ -204,14 +206,10 @@ export default function WriteReviewForBusinessPage() {
                           </div>
                           <span style={{ fontWeight: 600 }}>{sr.firstName}</span>
                           {sr.tags.length > 0 && (
-                            <span style={{ color: "var(--color-text-muted)" }}>
-                              {sr.tags.map((t) => {
-                                const icons: Record<string, string> = {
-                                  friendly: "😊", knowledgeable: "🧠", efficient: "⚡",
-                                  professional: "👔", "went-above-and-beyond": "🌟",
-                                };
-                                return icons[t] || t;
-                              }).join(" ")}
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--color-text-muted)" }}>
+                              {sr.tags.map((t) => (
+                                <TagIcon key={t} tagKey={t} size={14} />
+                              ))}
                             </span>
                           )}
                         </div>

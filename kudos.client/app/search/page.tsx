@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   searchBusinesses,
@@ -359,17 +360,20 @@ function SearchPageContent() {
               type="button"
               onClick={() => filter.onChange(!filter.checked)}
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
                 padding: "7px 14px",
                 borderRadius: 999,
-                border: filter.checked ? "1px solid var(--color-primary)" : "1px solid var(--color-primary)",
-                background: filter.checked ? "var(--color-primary)" : "rgba(26,26,46,0.08)",
+                border: "1px solid var(--color-primary)",
+                background: filter.checked ? "var(--color-primary)" : "rgba(36,28,18,0.06)",
                 color: filter.checked ? "#fff" : "var(--color-primary)",
                 cursor: "pointer",
                 fontWeight: 600,
                 fontSize: 13,
               }}
             >
-              {filter.checked && <span style={{ marginRight: 4 }}>✓</span>}
+              {filter.checked && <Check size={14} />}
               {filter.label}
             </button>
           ))}

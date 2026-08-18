@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { TagIcon } from "@/lib/icons";
 
 type LeaderboardEntry = {
   id: string;
@@ -20,14 +21,6 @@ type LeaderboardEntry = {
 type TagCount = {
   tagName: string;
   count: number;
-};
-
-const TAG_ICONS: Record<string, string> = {
-  friendly: "😊",
-  knowledgeable: "🧠",
-  efficient: "⚡",
-  professional: "👔",
-  "went-above-and-beyond": "🌟",
 };
 
 export default function LeaderboardPage() {
@@ -320,7 +313,7 @@ export default function LeaderboardPage() {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, marginLeft: 104 }}>
                     {tags.map((tag) => (
                       <span key={tag.tagName} className="tag" style={{ fontSize: 11, padding: "2px 8px" }}>
-                        {TAG_ICONS[tag.tagName] ?? ""} {tag.tagName} ({tag.count})
+                        <TagIcon tagKey={tag.tagName} size={13} /> {tag.tagName} ({tag.count})
                       </span>
                     ))}
                   </div>

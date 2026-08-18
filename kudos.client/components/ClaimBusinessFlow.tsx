@@ -204,7 +204,7 @@ export default function ClaimBusinessFlow({ businessId, onClaimed }: Props) {
               <button onClick={() => setStep("email")} className="btn-outline" style={{ textAlign: "left", padding: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontWeight: 700 }}>Email Verification</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-accent)", background: "var(--color-accent-soft, rgba(233,69,96,0.1))", padding: "2px 8px", borderRadius: 999 }}>Recommended</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-accent-hover)", background: "var(--color-accent-light)", padding: "2px 8px", borderRadius: 999 }}>Recommended</span>
                 </div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
                   We&apos;ll send a code to an email at {bizWebsite ? new URL(bizWebsite.startsWith("http") ? bizWebsite : `https://${bizWebsite}`).hostname.replace("www.", "") : "the business domain"}

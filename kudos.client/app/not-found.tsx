@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Compass } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -10,7 +11,11 @@ export default function NotFound() {
         paddingBottom: 80,
       }}
     >
-      <div style={{ fontSize: 64, marginBottom: 8 }}>🔍</div>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        <span style={{ display: "grid", placeItems: "center", width: 72, height: 72, borderRadius: "50%", background: "var(--color-accent-light)", color: "var(--color-accent-hover)" }}>
+          <Compass size={36} strokeWidth={1.75} />
+        </span>
+      </div>
       <div
         style={{
           fontSize: 15,

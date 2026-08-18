@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { X } from "lucide-react";
 import { CATEGORY_TREE } from "@/lib/categoryTree";
-
-const CATEGORY_ICONS: Record<string, string> = {
-  "food-drink": "🍽️",
-  "shopping": "🛍️",
-  "health-beauty": "💆",
-  "home-auto": "🏠",
-  "professional-services": "💼",
-  "entertainment-recreation": "🎭",
-};
+import { CategoryIcon } from "@/lib/icons";
 
 export default function CategoryMegaMenu() {
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -59,7 +52,7 @@ export default function CategoryMegaMenu() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid var(--color-border)" }}>
               <strong>Categories</strong>
-              <button onClick={() => setMobileOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>✕</button>
+              <button onClick={() => setMobileOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", color: "var(--color-text-secondary)" }}><X size={20} /></button>
             </div>
             <div style={{ overflowY: "auto", padding: 16 }}>
               {CATEGORY_TREE.map((group) => (
@@ -69,7 +62,7 @@ export default function CategoryMegaMenu() {
                     onClick={() => setMobileOpen(false)}
                     style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "var(--color-text)", fontWeight: 700, fontSize: 15, marginBottom: 8 }}
                   >
-                    <span>{CATEGORY_ICONS[group.slug] ?? "📁"}</span>
+                    <CategoryIcon slug={group.slug} size={18} />
                     {group.name}
                   </Link>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -117,7 +110,7 @@ export default function CategoryMegaMenu() {
                   whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ fontSize: 15 }}>{CATEGORY_ICONS[group.slug] ?? "📁"}</span>
+                <CategoryIcon slug={group.slug} size={15} />
                 {group.name}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
                   <polyline points="6 9 12 15 18 9" />

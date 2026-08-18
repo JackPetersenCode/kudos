@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { BadgeCheck } from "lucide-react";
 import { SearchBusinessResult } from "@/lib/search";
 import { getPlaceholderImage } from "@/lib/placeholderImages";
 
@@ -41,7 +42,7 @@ export default function BusinessCard({ business }: Props) {
         <div className="biz-card-body">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <h3 className="biz-card-name">{business.name}</h3>
-            {business.isVerified && <span title="Verified" style={{ color: "var(--color-accent)", fontSize: 14 }}>✓</span>}
+            {business.isVerified && <BadgeCheck size={16} style={{ color: "var(--color-accent)", flexShrink: 0 }} aria-label="Verified" />}
             {business.isPremium && <span className="tag-accent" style={{ fontSize: 10, padding: "2px 6px" }}>Premium</span>}
           </div>
 
@@ -93,18 +94,18 @@ export default function BusinessCard({ business }: Props) {
 
         <style jsx>{`
           .biz-card {
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
             background: var(--color-surface);
             overflow: hidden;
-            transition: all var(--transition);
+            box-shadow: var(--shadow-sm);
+            transition: transform var(--transition), box-shadow var(--transition);
             display: grid;
             grid-template-columns: 170px 1fr;
           }
           .biz-card:hover {
-            border-color: var(--color-text-muted);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
           }
           .biz-card-img {
             overflow: hidden;
@@ -124,9 +125,12 @@ export default function BusinessCard({ business }: Props) {
           }
           .biz-card-name {
             margin: 0;
-            font-size: 16px;
-            font-weight: 700;
-            line-height: 1.3;
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.25;
+            color: var(--color-primary);
           }
           .biz-card-desc {
             color: var(--color-text-secondary);

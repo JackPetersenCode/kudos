@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Bricolage_Grotesque } from "next/font/google";
 import NavBar from "@/components/NavBar";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
@@ -8,6 +8,13 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+});
+
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["600", "700", "800"],
+  variable: "--font-display",
 });
 
 export const metadata: Metadata = {
@@ -21,9 +28,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${bricolage.variable}`}>
       <head>
-        <style dangerouslySetInnerHTML={{ __html: `html,body{background:#fafbfc}` }} />
+        <style dangerouslySetInnerHTML={{ __html: `html,body{background:#faf7f2}` }} />
       </head>
       <body>
         <ToastProvider>

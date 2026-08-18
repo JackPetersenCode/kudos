@@ -9,7 +9,7 @@ export default function GlobalError({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: "#fafbfc", fontFamily: "Inter, system-ui, sans-serif", color: "#1e293b" }}>
+      <body style={{ margin: 0, background: "#faf7f2", fontFamily: "Inter, system-ui, sans-serif", color: "#2c2318" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
           <div style={{ textAlign: "center" }}>
             <h2 style={{ fontSize: 24, marginBottom: 12 }}>Something went wrong</h2>
@@ -20,8 +20,8 @@ export default function GlobalError({
                 borderRadius: 8,
                 border: "none",
                 background: "#f0a500",
-                color: "white",
-                fontWeight: 600,
+                color: "#3a2600",
+                fontWeight: 700,
                 cursor: "pointer",
                 fontSize: 14,
               }}

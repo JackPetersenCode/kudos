@@ -250,7 +250,7 @@ export default function NewAdPage() {
             appearance: {
               theme: "stripe",
               variables: {
-                colorPrimary: "#e94560",
+                colorPrimary: "#f0a500",
                 borderRadius: "8px",
               },
             },

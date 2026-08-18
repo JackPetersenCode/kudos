@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import HomepageCategorySlideshow from "@/components/HomepageCategorySlideshow";
 import HomepageSections from "@/components/HomepageSections";
 import { getHomepageCategorySlides } from "@/lib/homepage";
@@ -26,7 +27,7 @@ export default async function HomePage() {
 
           <div className="hero-cta">
             <div className="hero-badge">
-              <span className="hero-badge-icon">✨</span>
+              <span className="hero-badge-icon"><Sparkles size={16} /></span>
               <span>Only positive reviews allowed — try posting a negative one and see what happens</span>
             </div>
           </div>
@@ -42,33 +43,38 @@ export default async function HomePage() {
 
       <style>{`
         .hero {
-          background: linear-gradient(180deg, var(--color-primary) 0%, #0f3460 100%);
-          padding: 64px 24px 56px;
+          position: relative;
+          overflow: hidden;
+          background:
+            radial-gradient(70% 120% at 12% -10%, rgba(240,165,0,0.20) 0%, transparent 55%),
+            radial-gradient(60% 120% at 100% 0%, rgba(224,123,46,0.14) 0%, transparent 50%),
+            linear-gradient(168deg, #2c2117 0%, #1b1410 100%);
+          padding: 76px 24px 68px;
           text-align: center;
         }
         .hero-inner {
-          max-width: 720px;
+          max-width: 740px;
           margin: 0 auto;
+          position: relative;
         }
         .hero-title {
-          color: white;
-          font-size: 48px;
-          font-weight: 900;
-          line-height: 1.1;
+          color: #fff;
+          font-size: clamp(36px, 5.5vw, 54px);
+          font-weight: 800;
+          line-height: 1.06;
           letter-spacing: -0.03em;
-          margin: 0 0 16px 0;
+          margin: 0 0 18px 0;
+          text-wrap: balance;
         }
         .hero-accent {
           color: var(--color-accent);
         }
         .hero-subtitle {
-          color: rgba(255,255,255,0.7);
+          color: rgba(255,255,255,0.74);
           font-size: 18px;
           line-height: 1.6;
-          margin: 0 0 28px 0;
+          margin: 0 auto 30px;
           max-width: 560px;
-          margin-left: auto;
-          margin-right: auto;
         }
         .hero-cta {
           display: flex;
@@ -77,25 +83,24 @@ export default async function HomePage() {
         .hero-badge {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
-          background: rgba(255,255,255,0.1);
-          border: 1px solid rgba(255,255,255,0.2);
+          gap: 9px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.16);
           border-radius: 999px;
           padding: 10px 20px;
-          color: rgba(255,255,255,0.85);
+          color: rgba(255,255,255,0.9);
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 550;
           backdrop-filter: blur(4px);
         }
         .hero-badge-icon {
-          font-size: 18px;
+          display: inline-flex;
+          align-items: center;
+          color: var(--color-accent);
         }
         @media (max-width: 600px) {
           .hero {
-            padding: 40px 16px 36px;
-          }
-          .hero-title {
-            font-size: 32px;
+            padding: 44px 16px 40px;
           }
           .hero-subtitle {
             font-size: 16px;
