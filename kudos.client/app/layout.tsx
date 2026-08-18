@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable}`}>
       <head>
-        <style dangerouslySetInnerHTML={{ __html: `html,body{background:#faf7f2}` }} />
+        <style dangerouslySetInnerHTML={{ __html: `html,body{background:#fafafa}` }} />
       </head>
       <body>
         <ToastProvider>

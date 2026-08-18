@@ -366,7 +366,7 @@ function SearchPageContent() {
                 padding: "7px 14px",
                 borderRadius: 999,
                 border: "1px solid var(--color-primary)",
-                background: filter.checked ? "var(--color-primary)" : "rgba(36,28,18,0.06)",
+                background: filter.checked ? "var(--color-primary)" : "rgba(0,0,0,0.05)",
                 color: filter.checked ? "#fff" : "var(--color-primary)",
                 cursor: "pointer",
                 fontWeight: 600,

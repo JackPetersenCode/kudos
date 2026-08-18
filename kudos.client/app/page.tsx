@@ -46,9 +46,9 @@ export default async function HomePage() {
           position: relative;
           overflow: hidden;
           background:
-            radial-gradient(70% 120% at 12% -10%, rgba(240,165,0,0.20) 0%, transparent 55%),
-            radial-gradient(60% 120% at 100% 0%, rgba(224,123,46,0.14) 0%, transparent 50%),
-            linear-gradient(168deg, #2c2117 0%, #1b1410 100%);
+            radial-gradient(70% 120% at 12% -10%, rgba(240,165,0,0.22) 0%, transparent 55%),
+            radial-gradient(55% 110% at 100% 0%, rgba(240,165,0,0.10) 0%, transparent 50%),
+            linear-gradient(168deg, #1f1f1f 0%, #101010 100%);
           padding: 76px 24px 68px;
           text-align: center;
         }
