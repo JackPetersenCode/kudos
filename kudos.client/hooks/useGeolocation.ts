@@ -19,9 +19,31 @@ export function useGeolocation() {
     requested: false,
   });
 
+  // Approximate location from the caller's IP (server-side lookup). Lets search
+  // still show "near you" when the browser withholds precise geolocation —
+  // mirrors Yelp, which resolves a city from IP (e.g. "Austin, TX") in incognito.
+  async function fallbackToIp() {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/public/geoip`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const d = await res.json();
+        if (typeof d?.lat === "number" && typeof d?.lng === "number") {
+          setState({ lat: d.lat, lng: d.lng, loading: false, error: null, requested: true });
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setState((prev) => ({ ...prev, loading: false, requested: true }));
+  }
+
   function requestLocation() {
     if (!navigator.geolocation) {
-      setState((prev) => ({ ...prev, error: "Geolocation not supported", requested: true }));
+      fallbackToIp();
       return;
     }
 
@@ -37,13 +59,9 @@ export function useGeolocation() {
           requested: true,
         });
       },
-      (err) => {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: err.message,
-          requested: true,
-        }));
+      () => {
+        // Browser geolocation denied/failed — fall back to IP-based location.
+        fallbackToIp();
       },
       { timeout: 10000, maximumAge: 300000 } // 5 min cache
     );

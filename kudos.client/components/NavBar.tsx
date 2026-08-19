@@ -72,7 +72,7 @@ export default function NavBar() {
               value={where}
               onChange={setWhere}
               onUseCurrentLocation={() => setWhere("Current Location")}
-              onSelectCity={(city) => setWhere(city)}
+              onSelectCity={(city, state) => setWhere(state ? `${city}, ${state}` : city)}
               placeholder="City, state, or zip"
             />
           </div>

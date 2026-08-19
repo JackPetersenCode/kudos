@@ -53,6 +53,20 @@ namespace Kudos.Server.Controllers
 
                 var what = q?.Trim();
                 var whereValue = where?.Trim();
+
+                // Support "City, ST" location strings (from the location autocomplete):
+                // match the city and state parts separately so "Austin, TX" resolves
+                // precisely instead of a plain %Austin, TX% that matches nothing.
+                string? whereCityPattern = null;
+                string? whereStatePattern = null;
+                if (!string.IsNullOrWhiteSpace(whereValue) && whereValue.Contains(','))
+                {
+                    var parts = whereValue.Split(',', 2);
+                    var cityPart = parts[0].Trim();
+                    var statePart = parts.Length > 1 ? parts[1].Trim() : "";
+                    if (cityPart.Length > 0) whereCityPattern = $"%{cityPart}%";
+                    if (statePart.Length > 0) whereStatePattern = $"%{statePart}%";
+                }
                 var categoryValue = category?.Trim();
                 var cityValue = city?.Trim();
 
@@ -151,8 +165,11 @@ namespace Kudos.Server.Controllers
                                 c.name ILIKE @what_pattern)
                             AND
                             ((@where::text IS NULL) OR
-                                b.city ILIKE @where_pattern OR
-                                b.state ILIKE @where_pattern)
+                                (@where_city::text IS NOT NULL
+                                    AND b.city ILIKE @where_city
+                                    AND (@where_state::text IS NULL OR b.state ILIKE @where_state)) OR
+                                (@where_city::text IS NULL
+                                    AND (b.city ILIKE @where_pattern OR b.state ILIKE @where_pattern)))
                             AND
                             (
                                 (@category::text IS NULL)
@@ -296,6 +313,8 @@ namespace Kudos.Server.Controllers
                 cmd.Parameters.Add("@what_pattern", NpgsqlDbType.Text).Value = $"%{what}%";
                 cmd.Parameters.Add("@where", NpgsqlDbType.Text).Value = (object?)whereValue ?? DBNull.Value;
                 cmd.Parameters.Add("@where_pattern", NpgsqlDbType.Text).Value = $"%{whereValue}%";
+                cmd.Parameters.Add("@where_city", NpgsqlDbType.Text).Value = (object?)whereCityPattern ?? DBNull.Value;
+                cmd.Parameters.Add("@where_state", NpgsqlDbType.Text).Value = (object?)whereStatePattern ?? DBNull.Value;
                 cmd.Parameters.Add("@category", NpgsqlDbType.Text).Value = (object?)categoryValue ?? DBNull.Value;
                 cmd.Parameters.Add("@city", NpgsqlDbType.Text).Value = (object?)cityValue ?? DBNull.Value;
                 cmd.Parameters.Add("@city_pattern", NpgsqlDbType.Text).Value = $"%{cityValue}%";
@@ -396,8 +415,11 @@ namespace Kudos.Server.Controllers
                                 c.name ILIKE @what_pattern)
                             AND
                             ((@where::text IS NULL) OR
-                                b.city ILIKE @where_pattern OR
-                                b.state ILIKE @where_pattern)
+                                (@where_city::text IS NOT NULL
+                                    AND b.city ILIKE @where_city
+                                    AND (@where_state::text IS NULL OR b.state ILIKE @where_state)) OR
+                                (@where_city::text IS NULL
+                                    AND (b.city ILIKE @where_pattern OR b.state ILIKE @where_pattern)))
                             AND
                             ((@city::text IS NULL) OR
                                 b.city ILIKE @city_pattern)
