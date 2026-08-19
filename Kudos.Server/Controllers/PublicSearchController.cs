@@ -56,6 +56,19 @@ namespace Kudos.Server.Controllers
                 var categoryValue = category?.Trim();
                 var cityValue = city?.Trim();
 
+                // A near-me search with NO radius forces an unbounded haversine
+                // distance sort over the entire ~323k-row catalog, which blows the
+                // DB statement timeout (Sentry: TimeoutException at ExecuteReader for
+                // e.g. category=restaurant&sort=distance with lat/lng, no radius).
+                // Whenever we have a user location, always apply a bounding radius so
+                // the lat/lng box pre-filters rows first. The UI's max radius is 100
+                // miles; "Any Distance" near-me becomes that bound. This keeps every
+                // geo search well under a second.
+                if (lat.HasValue && lng.HasValue)
+                {
+                    radiusMiles = Math.Clamp(radiusMiles ?? 100, 1, 100);
+                }
+
                 await using var connection = new NpgsqlConnection(connectionString);
                 await connection.OpenAsync();
 

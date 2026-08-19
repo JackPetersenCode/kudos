@@ -45,6 +45,11 @@ function SearchPageContent() {
   const delivery = searchParams.get("delivery") === "true";
   const takeout = searchParams.get("takeout") === "true";
   const outdoorSeating = searchParams.get("outdoorSeating") === "true";
+  // URL is the source of truth for the actual search (the selected* / dropdown
+  // state below only drives the form until "Apply Filters" pushes it to the URL).
+  const minRatingParam = searchParams.get("minRating") ?? "";
+  const sortParam = searchParams.get("sort") ?? "";
+  const radiusParam = searchParams.get("radiusMiles") ?? "";
 
   const [results, setResults] = useState<SearchBusinessResult[]>([]);
   const [cityCounts, setCityCounts] = useState<SearchCityCount[]>([]);
@@ -175,7 +180,7 @@ function SearchPageContent() {
     }
 
     runSearch();
-  }, [q, where, category, city, price, openNow, reservations, onlineWaitlist, delivery, takeout, outdoorSeating, geo.lat, geo.lng, geo.loading, geo.requested]);
+  }, [q, where, category, city, price, openNow, reservations, onlineWaitlist, delivery, takeout, outdoorSeating, minRatingParam, sortParam, radiusParam, geo.lat, geo.lng, geo.loading, geo.requested]);
 
   function applyFilters() {
     const params = new URLSearchParams();
