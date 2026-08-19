@@ -16,6 +16,54 @@ namespace Kudos.Server.Controllers
             _logger = logger;
         }
 
+        // Dedicated, lightweight city autocomplete for the location field (Yelp-style).
+        // Prefix match, cities only — avoids the business/category queries the full
+        // autocomplete runs, so it stays fast on every keystroke.
+        [HttpGet("cities")]
+        public async Task<IActionResult> Cities([FromQuery] string q)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 1)
+                    return Ok(new { cities = Array.Empty<object>() });
+
+                var term = q.Trim();
+                var connectionString = _configuration.GetConnectionString("WebApiDatabase");
+                await using var connection = new NpgsqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                var citySql = """
+                    SELECT city, state, COUNT(*)::int AS count
+                    FROM businesses
+                    WHERE city IS NOT NULL AND city ILIKE @pattern
+                    GROUP BY city, state
+                    ORDER BY count DESC, city
+                    LIMIT 8;
+                    """;
+
+                var cities = new List<object>();
+                await using var cmd = new NpgsqlCommand(citySql, connection);
+                cmd.Parameters.AddWithValue("@pattern", $"{term}%");
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    cities.Add(new
+                    {
+                        city = reader.GetString(0),
+                        state = reader.IsDBNull(1) ? null : reader.GetString(1),
+                        count = reader.GetInt32(2)
+                    });
+                }
+
+                return Ok(new { cities });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in {Action}", nameof(Cities));
+                return StatusCode(500, new { message = "An unexpected error occurred." });
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> Autocomplete([FromQuery] string q)
         {

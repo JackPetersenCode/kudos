@@ -349,89 +349,14 @@ namespace Kudos.Server.Controllers
 
                 await reader.CloseAsync();
 
-                // City counts use all filters EXCEPT the city filter itself, so users
-                // can switch to other matching cities from the dropdown (mirrors how
-                // the category counts drop the category filter). Kept lightweight
-                // (only id + city, no rating/photo/category aggregation) so it stays
-                // fast even when the city filter is removed.
-                var filteredNoCityCte = $"""
-                    WITH filtered_no_city AS (
-                        SELECT DISTINCT b.id, b.city
-                        FROM businesses b
-                        LEFT JOIN business_categories bc
-                            ON bc.business_id = b.id
-                        LEFT JOIN categories c
-                            ON c.id = bc.category_id
-                        WHERE
-                            ((@what::text IS NULL) OR
-                                b.name ILIKE @what_pattern OR
-                                b.description ILIKE @what_pattern OR
-                                c.name ILIKE @what_pattern)
-                            AND
-                            ((@where::text IS NULL) OR
-                                b.city ILIKE @where_pattern OR
-                                b.state ILIKE @where_pattern)
-                            AND
-                            (
-                                (@category::text IS NULL)
-                                OR c.slug = @category
-                                OR c.parent_slug = @category
-                            )
-                            AND
-                            ((@price::smallint IS NULL) OR
-                                b.price_level = @price)
-                            AND
-                            {openNowSqlCondition}
-                            AND
-                            ((@reservations::boolean IS NULL) OR
-                                b.accepts_reservations = @reservations)
-                            AND
-                            ((@online_waitlist::boolean IS NULL) OR
-                                b.offers_online_waitlist = @online_waitlist)
-                            AND
-                            ((@delivery::boolean IS NULL) OR
-                                b.offers_delivery = @delivery)
-                            AND
-                            ((@takeout::boolean IS NULL) OR
-                                b.offers_takeout = @takeout)
-                            AND
-                            ((@outdoor_seating::boolean IS NULL) OR
-                                b.outdoor_seating = @outdoor_seating)
-                            AND
-                            {boundsSqlCondition}
-                            AND
-                            (
-                                @user_lat::numeric IS NULL
-                                OR @user_lng::numeric IS NULL
-                                OR @radius_miles::int IS NULL
-                                OR (
-                                    b.latitude IS NOT NULL
-                                    AND b.longitude IS NOT NULL
-                                    AND b.latitude BETWEEN @user_lat - (@radius_miles::numeric / 69.0)
-                                                       AND @user_lat + (@radius_miles::numeric / 69.0)
-                                    AND b.longitude BETWEEN @user_lng - (@radius_miles::numeric / (69.0 * cos(radians(@user_lat))))
-                                                        AND @user_lng + (@radius_miles::numeric / (69.0 * cos(radians(@user_lat))))
-                                    AND (
-                                        3959 * acos(
-                                            LEAST(1.0, cos(radians(@user_lat)) * cos(radians(b.latitude))
-                                            * cos(radians(b.longitude) - radians(@user_lng))
-                                            + sin(radians(@user_lat)) * sin(radians(b.latitude)))
-                                        )
-                                    ) <= @radius_miles
-                                )
-                            )
-                    )
-                    """;
-
-                var cityCountsSql = filteredNoCityCte + """
+                var cityCountsSql = filteredCte + """
                     SELECT
                         city,
                         COUNT(*)::int AS count
-                    FROM filtered_no_city
+                    FROM filtered
                     WHERE city IS NOT NULL
                     GROUP BY city
-                    ORDER BY count DESC, city
-                    LIMIT 50;
+                    ORDER BY count DESC, city;
                     """;
 
                 await using var cityCmd = new NpgsqlCommand(cityCountsSql, connection);
