@@ -1,0 +1,27 @@
+# EAS Build only builds the reputater-mobile app, but it archives from the git
+# root — so exclude the rest of this monorepo and the large local datasets to
+# keep the upload under EAS's 2 GB limit. (.easignore replaces .gitignore for
+# EAS uploads, so dependency/artifact dirs are re-listed here too.)
+
+# Huge local Yelp datasets — not tracked, not needed to build the app
+yelp-data/
+Yelp-JSON.zip
+Yelp-Photos.zip
+*.zip
+
+# Other projects in this repo, irrelevant to the mobile build
+kudos.client/
+Kudos.Server/
+
+# Dependencies (reinstalled on the EAS build server)
+node_modules/
+**/node_modules/
+
+# Build artifacts / caches / VCS
+.git/
+.expo/
+dist/
+web-build/
+.next/
+bin/
+obj/
