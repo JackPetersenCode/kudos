@@ -479,7 +479,15 @@ namespace Kudos.Server.Controllers
                         ON bc.category_id = c.id
                     INNER JOIN filtered_no_cat fnc
                         ON fnc.id = bc.business_id
-                    WHERE c.parent_slug IS NOT NULL
+                    -- Show specific category pills, hiding only the 6 top-level
+                    -- groups. Excluding by slug (rather than parent_slug IS NOT
+                    -- NULL) is robust to categories whose parent_slug wasn't set
+                    -- during import (e.g. bar/salon/coffee-shop), which would
+                    -- otherwise vanish from the pills.
+                    WHERE c.slug NOT IN (
+                        'food-drink', 'shopping', 'health-beauty',
+                        'home-auto', 'professional-services', 'entertainment-recreation'
+                    )
                     GROUP BY c.slug, c.name
                     HAVING COUNT(DISTINCT fnc.id) > 0
                     ORDER BY count DESC, c.name;
