@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, TextInput, FlatList, Text, StyleSheet, Pressable, ScrollView, Modal } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import BusinessCard from "../../components/BusinessCard";
 import SponsoredBanner from "../../components/SponsoredBanner";
 import { ListSkeleton } from "../../components/Skeleton";
@@ -53,6 +53,7 @@ type FeatureKey = typeof FEATURE_FILTERS[number]["key"];
 
 export default function SearchScreen() {
   const geo = useGeolocation(false); // ask only when user opts in
+  const params = useLocalSearchParams<{ category?: string }>();
   const [query, setQuery] = useState("");
   const [where, setWhere] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -65,7 +66,7 @@ export default function SearchScreen() {
   // Filters
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(typeof params.category === "string" ? params.category : "");
   const [price, setPrice] = useState("");
   const [minRating, setMinRating] = useState("");
   const [radiusMiles, setRadiusMiles] = useState("");
@@ -93,6 +94,14 @@ export default function SearchScreen() {
 
   // Use geolocation only when there's no explicit "where" / city filter
   const useGeo = geo.lat != null && geo.lng != null && !where.trim() && !city.trim();
+
+  // Apply an incoming ?category= param (e.g. tapping a category on Home). The
+  // search tab stays mounted, so react to the param changing on each navigation.
+  useEffect(() => {
+    if (typeof params.category === "string" && params.category) {
+      setCategory(params.category);
+    }
+  }, [params.category]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {

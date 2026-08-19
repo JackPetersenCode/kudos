@@ -61,7 +61,7 @@ export default function HomeScreen() {
             <Pressable
               key={group.slug}
               style={styles.categoryCard}
-              onPress={() => router.push(`/(tabs)/search`)}
+              onPress={() => router.push(`/(tabs)/search?category=${encodeURIComponent(group.slug)}`)}
             >
               <Text style={styles.categoryIcon}>{CATEGORY_GROUP_ICONS[group.slug] ?? "🏷"}</Text>
               <Text style={styles.categoryName}>{group.name}</Text>

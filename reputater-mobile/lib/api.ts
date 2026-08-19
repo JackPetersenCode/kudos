@@ -12,12 +12,20 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
-    let msg = "Request failed";
+    // The API returns errors as either JSON ({ message }) or plain text
+    // (e.g. "Invalid credentials"). Read the body once, then try JSON — a
+    // plain-text body must NOT get swallowed into a generic "Request failed".
+    let msg = `Request failed (${res.status})`;
     try {
       const text = await res.text();
-      const parsed = text ? JSON.parse(text) : null;
-      msg = parsed?.message || text || msg;
-    } catch { /* ignore */ }
+      if (text) {
+        try {
+          msg = JSON.parse(text)?.message || text;
+        } catch {
+          msg = text; // plain-text error body
+        }
+      }
+    } catch { /* body already consumed / no body */ }
     const err = new Error(msg) as Error & { status?: number };
     err.status = res.status;
     throw err;
