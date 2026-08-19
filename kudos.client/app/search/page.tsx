@@ -8,7 +8,6 @@ import {
   searchBusinesses,
   SearchBusinessResult,
   SearchCategoryCount,
-  SearchCityCount,
 } from "@/lib/search";
 import BusinessCard from "@/components/BusinessCard";
 import SearchResultsMap from "@/components/SearchResultsMap";
@@ -52,7 +51,6 @@ function SearchPageContent() {
   const radiusParam = searchParams.get("radiusMiles") ?? "";
 
   const [results, setResults] = useState<SearchBusinessResult[]>([]);
-  const [cityCounts, setCityCounts] = useState<SearchCityCount[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<SearchCategoryCount[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -123,13 +121,11 @@ function SearchPageContent() {
       const data = await searchBusinesses(buildSearchParams(extraBounds, 1));
 
       setResults(data.results ?? []);
-      setCityCounts(data.cityCounts ?? []);
       setCategoryCounts(data.categoryCounts ?? []);
       setTotalResults(data.totalCount ?? (data.results ?? []).length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
       setResults([]);
-      setCityCounts([]);
       setCategoryCounts([]);
     } finally {
       setLoading(false);
@@ -174,7 +170,6 @@ function SearchPageContent() {
       !outdoorSeating
     ) {
       setResults([]);
-      setCityCounts([]);
       setCategoryCounts([]);
       return;
     }
@@ -244,22 +239,8 @@ function SearchPageContent() {
 
       <div style={{ display: "grid", gap: 16, marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 6 }}>City</label>
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              style={{ padding: 8, borderRadius: 8 }}
-            >
-              <option value="">All Cities</option>
-              {(cityCounts ?? []).map((item) => (
-                <option key={item.city} value={item.city}>
-                  {item.city} ({item.count})
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {/* Location is set from the navbar's location field (Yelp-style):
+              type a city or use current location. No City dropdown here. */}
           <div>
             <label style={{ display: "block", marginBottom: 6 }}>Price</label>
             <select

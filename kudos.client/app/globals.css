@@ -543,7 +543,9 @@ label {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: var(--radius-full);
-  overflow: hidden;
+  /* visible so the autocomplete dropdowns aren't clipped; the button rounds
+     its own right corners to keep the pill shape */
+  overflow: visible;
   transition: all var(--transition);
 }
 .navbar-search:focus-within {
@@ -596,7 +598,7 @@ label {
   cursor: pointer;
   display: flex;
   align-items: center;
-  border-radius: 0;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
   flex-shrink: 0;
   transition: background var(--transition);
 }

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryMegaMenu from "@/components/CategoryMegaMenu";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
 import ReputaterLogo from "@/components/ReputaterLogo";
 import { getUnreadNotificationCount } from "@/lib/features";
 
@@ -39,7 +40,10 @@ export default function NavBar() {
     e.preventDefault();
     const params = new URLSearchParams();
     if (what.trim()) params.set("q", what.trim());
-    if (where.trim()) params.set("where", where.trim());
+    // Empty or "Current Location" => no `where` param, so the search falls back
+    // to the browser's geolocation ("near you").
+    const loc = where.trim();
+    if (loc && loc.toLowerCase() !== "current location") params.set("where", loc);
     router.push(`/search?${params.toString()}`);
   }
 
@@ -64,18 +68,13 @@ export default function NavBar() {
               }
             />
             <div className="search-divider" />
-            <div className="search-input-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="search-icon">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <input
-                placeholder="City, state, or zip"
-                value={where}
-                onChange={(e) => setWhere(e.target.value)}
-                className="search-input"
-              />
-            </div>
+            <LocationAutocomplete
+              value={where}
+              onChange={setWhere}
+              onUseCurrentLocation={() => setWhere("Current Location")}
+              onSelectCity={(city) => setWhere(city)}
+              placeholder="City, state, or zip"
+            />
           </div>
           <button type="submit" className="search-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
