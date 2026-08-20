@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using BCrypt.Net;
 using Kudos.Server.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace kudos.Controllers
 {
@@ -15,14 +16,37 @@ namespace kudos.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _configuration;
-        private readonly EmailService _emailService;
         private readonly ILogger<AuthController> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public AuthController(IConfiguration configuration, EmailService emailService, ILogger<AuthController> logger)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, IServiceScopeFactory scopeFactory)
         {
             _configuration = configuration;
-            _emailService = emailService;
             _logger = logger;
+            _scopeFactory = scopeFactory;
+        }
+
+        // Send an email WITHOUT blocking the HTTP response. Auth flows shouldn't
+        // wait on the email provider — a slow send could otherwise trip a mobile
+        // client's read timeout ("Network request failed"). Uses a fresh DI scope
+        // so the EmailService isn't disposed when the request ends; failures log.
+        private void FireAndForgetEmail(Func<EmailService, Task> send, string context)
+        {
+            var logger = _logger;
+            var scopeFactory = _scopeFactory;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    var email = scope.ServiceProvider.GetRequiredService<EmailService>();
+                    await send(email);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Background email send failed: {Context}", context);
+                }
+            });
         }
 
         [HttpPost("register")]
@@ -88,7 +112,7 @@ namespace kudos.Controllers
                 await setTokenCmd.ExecuteNonQueryAsync();
 
                 var verifyUrl = $"{_configuration["App:FrontendUrl"] ?? "https://reputater.com"}/verify-email?token={verificationToken}";
-                await _emailService.SendVerificationEmail(request.Email, verifyUrl);
+                FireAndForgetEmail(e => e.SendVerificationEmail(request.Email, verifyUrl), "verification");
 
                 var token = GenerateJwtToken(request.Email, "user");
                 SetAuthCookie(token);
@@ -273,7 +297,7 @@ namespace kudos.Controllers
                 await updateCmd.ExecuteNonQueryAsync();
 
                 var resetUrl = $"{_configuration["App:FrontendUrl"] ?? "https://reputater.com"}/reset-password?token={resetToken}";
-                await _emailService.SendPasswordResetEmail(request.Email, resetUrl);
+                FireAndForgetEmail(e => e.SendPasswordResetEmail(request.Email, resetUrl), "password-reset");
 
                 return Ok(new { message = "If that email exists, a reset link has been sent." });
             }
