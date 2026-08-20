@@ -76,7 +76,7 @@ namespace kudos.Controllers
                 await conn.OpenAsync();
 
                 var checkCmd = new NpgsqlCommand(
-                    "SELECT COUNT(*) FROM users WHERE email = @email",
+                    "SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER(@email)",
                     conn
                 );
                 checkCmd.Parameters.AddWithValue("@email", request.Email);
@@ -103,7 +103,7 @@ namespace kudos.Controllers
                 // Generate email verification token
                 var verificationToken = Guid.NewGuid().ToString("N");
                 var setTokenCmd = new NpgsqlCommand(
-                    "UPDATE users SET verification_token = @token, verification_token_expires_at = @expires WHERE email = @email",
+                    "UPDATE users SET verification_token = @token, verification_token_expires_at = @expires WHERE LOWER(email) = LOWER(@email)",
                     conn
                 );
                 setTokenCmd.Parameters.AddWithValue("@token", verificationToken);
@@ -144,7 +144,7 @@ namespace kudos.Controllers
                 await conn.OpenAsync();
 
                 var cmd = new NpgsqlCommand(
-                    "SELECT password_hash, role FROM users WHERE email = @email",
+                    "SELECT email, password_hash, role FROM users WHERE LOWER(email) = LOWER(@email)",
                     conn
                 );
 
@@ -157,8 +157,12 @@ namespace kudos.Controllers
                     return Unauthorized("Invalid credentials");
                 }
 
-                var dbPasswordHash = reader.GetString(0);
-                var role = reader.GetString(1);
+                // Use the stored (canonical) email everywhere downstream, not the
+                // casing the user happened to type — so the JWT and any lookups
+                // keyed off it stay consistent.
+                var dbEmail = reader.GetString(0);
+                var dbPasswordHash = reader.GetString(1);
+                var role = reader.GetString(2);
 
                 var validPassword = BCrypt.Net.BCrypt.Verify(request.Password, dbPasswordHash);
 
@@ -167,13 +171,13 @@ namespace kudos.Controllers
                     return Unauthorized("Invalid credentials");
                 }
 
-                var token = GenerateJwtToken(request.Email, role);
+                var token = GenerateJwtToken(dbEmail, role);
                 SetAuthCookie(token);
 
                 return Ok(new
                 {
                     token,
-                    email = request.Email,
+                    email = dbEmail,
                     role
                 });
             }
@@ -279,7 +283,7 @@ namespace kudos.Controllers
                 await using var conn = new NpgsqlConnection(connStr);
                 await conn.OpenAsync();
 
-                var checkCmd = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE email = @email", conn);
+                var checkCmd = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER(@email)", conn);
                 checkCmd.Parameters.AddWithValue("@email", request.Email);
                 var exists = (long)await checkCmd.ExecuteScalarAsync()!;
 
@@ -288,7 +292,7 @@ namespace kudos.Controllers
 
                 var resetToken = Guid.NewGuid().ToString("N");
                 var updateCmd = new NpgsqlCommand(
-                    "UPDATE users SET reset_token = @token, reset_token_expires_at = @expires WHERE email = @email",
+                    "UPDATE users SET reset_token = @token, reset_token_expires_at = @expires WHERE LOWER(email) = LOWER(@email)",
                     conn
                 );
                 updateCmd.Parameters.AddWithValue("@token", resetToken);
