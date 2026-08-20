@@ -152,7 +152,26 @@ namespace kudos.Controllers
 
                 await using var reader = await cmd.ExecuteReaderAsync();
 
-                if (!await reader.ReadAsync())
+                // A case-insensitive match can return more than one row if legacy
+                // duplicate accounts exist for the same email in different cases.
+                // Check the password against EVERY match and log in the one that
+                // verifies, so we never fail just because the wrong row came first.
+                string? matchedEmail = null;
+                string? matchedRole = null;
+                while (await reader.ReadAsync())
+                {
+                    var email = reader.GetString(0);
+                    var hash = reader.GetString(1);
+                    var r = reader.GetString(2);
+                    if (BCrypt.Net.BCrypt.Verify(request.Password, hash))
+                    {
+                        matchedEmail = email;
+                        matchedRole = r;
+                        break;
+                    }
+                }
+
+                if (matchedEmail is null)
                 {
                     return Unauthorized("Invalid credentials");
                 }
@@ -160,25 +179,14 @@ namespace kudos.Controllers
                 // Use the stored (canonical) email everywhere downstream, not the
                 // casing the user happened to type — so the JWT and any lookups
                 // keyed off it stay consistent.
-                var dbEmail = reader.GetString(0);
-                var dbPasswordHash = reader.GetString(1);
-                var role = reader.GetString(2);
-
-                var validPassword = BCrypt.Net.BCrypt.Verify(request.Password, dbPasswordHash);
-
-                if (!validPassword)
-                {
-                    return Unauthorized("Invalid credentials");
-                }
-
-                var token = GenerateJwtToken(dbEmail, role);
+                var token = GenerateJwtToken(matchedEmail, matchedRole!);
                 SetAuthCookie(token);
 
                 return Ok(new
                 {
                     token,
-                    email = dbEmail,
-                    role
+                    email = matchedEmail,
+                    role = matchedRole
                 });
             }
             catch (Exception ex)
