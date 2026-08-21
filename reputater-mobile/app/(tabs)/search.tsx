@@ -53,9 +53,9 @@ type FeatureKey = typeof FEATURE_FILTERS[number]["key"];
 
 export default function SearchScreen() {
   const geo = useGeolocation(false); // ask only when user opts in
-  const params = useLocalSearchParams<{ category?: string }>();
-  const [query, setQuery] = useState("");
-  const [where, setWhere] = useState("");
+  const params = useLocalSearchParams<{ category?: string; q?: string; where?: string }>();
+  const [query, setQuery] = useState(typeof params.q === "string" ? params.q : "");
+  const [where, setWhere] = useState(typeof params.where === "string" ? params.where : "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [cityCounts, setCityCounts] = useState<SearchCityCount[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<SearchCategoryCount[]>([]);
@@ -95,13 +95,17 @@ export default function SearchScreen() {
   // Use geolocation only when there's no explicit "where" / city filter
   const useGeo = geo.lat != null && geo.lng != null && !where.trim() && !city.trim();
 
-  // Apply an incoming ?category= param (e.g. tapping a category on Home). The
-  // search tab stays mounted, so react to the param changing on each navigation.
+  // Apply incoming params (category from a shortcut, or q/where from the search
+  // entry page). The search tab stays mounted, so react on each navigation.
   useEffect(() => {
-    if (typeof params.category === "string" && params.category) {
-      setCategory(params.category);
-    }
+    if (typeof params.category === "string" && params.category) setCategory(params.category);
   }, [params.category]);
+  useEffect(() => {
+    if (typeof params.q === "string") setQuery(params.q);
+  }, [params.q]);
+  useEffect(() => {
+    if (typeof params.where === "string") setWhere(params.where);
+  }, [params.where]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {

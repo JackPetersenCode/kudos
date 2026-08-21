@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../contexts/AuthContext";
 import { useNotificationTapRouter } from "../lib/useNotificationTapRouter";
+import { colors } from "../lib/theme";
 
 export default function RootLayout() {
   // Route to the right screen when the app is opened from a tapped notification.
@@ -16,13 +17,14 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <Stack
             screenOptions={{
-              headerStyle: { backgroundColor: "#1a1a2e" },
-              headerTintColor: "#f0a500",
+              headerStyle: { backgroundColor: colors.primary },
+              headerTintColor: colors.accent,
               headerTitleStyle: { fontWeight: "900" },
-              contentStyle: { backgroundColor: "#fafbfc" },
+              contentStyle: { backgroundColor: colors.bg },
             }}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="search-entry" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ title: "Sign in" }} />
             <Stack.Screen name="register" options={{ title: "Create account" }} />
             <Stack.Screen name="forgot-password" options={{ title: "Forgot Password" }} />

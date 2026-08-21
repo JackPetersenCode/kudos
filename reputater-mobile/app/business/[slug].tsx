@@ -8,6 +8,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { getTaterLevel } from "../../lib/taterLevel";
 import { addFavorite, removeFavorite, getFavoriteStatus, checkIn, getCheckInCount } from "../../lib/features";
+import { addRecentView } from "../../lib/recents";
 import { getStaffMembers, StaffMember } from "../../lib/staff";
 import { getOwnedBusinesses, getSeasonalTags, SeasonalTag, getBusinessHours, BusinessHours } from "../../lib/businessOwner";
 import { openExternalUrl } from "../../lib/url";
@@ -58,6 +59,7 @@ export default function BusinessDetailScreen() {
       try {
         const biz = await getBusiness(slug);
         setBusiness(biz);
+        addRecentView({ slug: String(slug), name: biz.name, city: biz.city ?? null });
         const [reviewData, photoData, checkinData, staffData, tagData, hoursData] = await Promise.all([
           getBusinessReviews(biz.id).catch(() => ({ reviews: [], reviewCount: 0 })),
           getBusinessPhotos(biz.id).catch(() => []),
